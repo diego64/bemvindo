@@ -1,0 +1,110 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+
+  "timezone": "America/Sao_Paulo",
+  "schedule": ["every weekend"],
+
+  "labels": ["dependencias"],
+  "reviewers": ["diego64"],
+  "assignees": ["diego64"],
+
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "rebaseWhen": "conflicted",
+  "prCreation": "not-pending",
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Dashboard de Dependências",
+
+  "commitMessagePrefix": "chore:",
+  "commitMessageAction": "atualizar",
+  "commitMessageTopic": "{{depName}}",
+  "commitMessageExtra": "para {{newVersion}}",
+
+  "vulnerabilityAlerts": {
+    "labels": ["seguranca", "dependencias"],
+    "schedule": ["at any time"],
+    "automerge": false
+  },
+  "osvVulnerabilityAlerts": true,
+
+  "packageRules": [
+    {
+      "description": "Plugins do Fastify — agrupados, sem automerge",
+      "matchPackageNames": ["fastify", "@fastify/**"],
+      "groupName": "fastify e plugins",
+      "automerge": false
+    },
+    {
+      "description": "TypeScript ESLint — agrupado, patch com automerge",
+      "matchPackageNames": ["typescript-eslint", "@typescript-eslint/**", "@eslint/js", "eslint"],
+      "groupName": "eslint e typescript-eslint",
+      "automerge": false
+    },
+    {
+      "description": "Vitest — agrupado, patch com automerge",
+      "matchPackageNames": ["vitest", "@vitest/**"],
+      "groupName": "vitest",
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Commitlint — agrupado",
+      "matchPackageNames": ["@commitlint/**"],
+      "groupName": "commitlint",
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Husky e lint-staged — agrupados",
+      "matchPackageNames": ["husky", "lint-staged"],
+      "groupName": "husky e lint-staged",
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "TypeScript — fixar na versão major atual, sem automerge",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "6.x",
+      "automerge": false
+    },
+    {
+      "description": "MongoDB driver — sem automerge (mudanças de schema podem quebrar)",
+      "matchPackageNames": ["mongodb"],
+      "automerge": false
+    },
+    {
+      "description": "Zod — sem automerge (breaking changes em validações de domínio)",
+      "matchPackageNames": ["zod"],
+      "automerge": false
+    },
+    {
+      "description": "GitHub Actions — agrupadas",
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions",
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Major releases — nunca automerge, sempre revisão manual",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["dependencias", "major"],
+      "prPriority": -1
+    },
+    {
+      "description": "Tipos @types/* — patch e minor com automerge",
+      "matchPackageNames": ["@types/**"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true,
+      "automergeType": "pr"
+    }
+  ],
+
+  "ignoreDeps": [],
+  "ignorePaths": ["**/node_modules/**", "dist/**"]
+}

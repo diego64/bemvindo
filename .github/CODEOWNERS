@@ -1,0 +1,17 @@
+# Dono padrão de todo o repositório.
+* @{diego64}
+
+# Infraestrutura e CI/CD — requer revisão do responsável técnico
+.github/ @{diego64}
+docker-compose*.yml @{diego64}
+Dockerfile @{diego64}
+
+# Configuração de qualidade e segurança
+tsconfig.json @{diego64}
+eslint.config.js @{diego64}
+commitlint.config.js @{diego64}
+
+# Domínio principal — camadas protegidas por revisão obrigatória
+src/modulos/ @{diego64}
+src/compartilhado/ @{diego64}
+src/infra/ @{diego64}
