@@ -1,6 +1,5 @@
 name: CI
 
-# ─────────────────────────────────────────────────────────────────────────────
 # FASE: Desenvolvimento local
 #
 # Etapas ativas agora:
@@ -12,7 +11,6 @@ name: CI
 #   ⏳ testes-integracao — precisa de MongoDB + Redis via Docker services
 #   ⏳ testes-e2e        — precisa do servidor Fastify em execução
 #   ⏳ cobertura         — habilitar após cobertura mínima atingida (80%)
-# ─────────────────────────────────────────────────────────────────────────────
 
 on:
   push:
@@ -23,7 +21,7 @@ on:
 permissions: {}
 
 jobs:
-  # ─── Lint e Typecheck ────────────────────────────────────────────────────
+  # Lint e Typecheck
   qualidade:
     name: Lint e Typecheck
     runs-on: ubuntu-latest
@@ -51,7 +49,7 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-  # ─── Testes unitários ────────────────────────────────────────────────────
+  # Testes unitários
   testes:
     name: Testes Unitários
     runs-on: ubuntu-latest
@@ -77,7 +75,7 @@ jobs:
       - name: Testes unitários
         run: pnpm test
 
-  # ─── Testes de integração ────────────────────────────────────────────────
+  # Testes de integração
   # ⏳ PENDENTE — habilitar quando os primeiros repositórios MongoDB/Redis
   #    estiverem implementados em src/modulos/*/infra/repositorios/
   #
@@ -90,8 +88,8 @@ jobs:
   #     mongodb:
   #       image: mongo:8.0
   #       env:
-  #         MONGO_INITDB_ROOT_USERNAME: ${{ secrets.MONGO_INITDB_ROOT_USERNAME }}
-  #         MONGO_INITDB_ROOT_PASSWORD: ${{ secrets.MONGO_INITDB_ROOT_PASSWORD }}
+  #         MONGO_INITDB_ROOT_USERNAME: usuario
+  #         MONGO_INITDB_ROOT_PASSWORD: senha
   #       ports:
   #         - 27017:27017
   #       options: >-
@@ -111,7 +109,7 @@ jobs:
   #         - 6379:6379
   #
   #   env:
-  #     MONGO_URI: mongodb://${{ secrets.MONGO_INITDB_ROOT_USERNAME }}:${{ secrets.MONGO_INITDB_ROOT_PASSWORD }}@localhost:27017/bem-vindo-test
+  #     MONGO_URI: mongodb://usuario:senha@localhost:27017/bem-vindo-test
   #     REDIS_URL: redis://localhost:6379
   #     NODE_ENV: test
   #
@@ -129,7 +127,7 @@ jobs:
   #     - name: Testes de integração
   #       run: pnpm exec vitest run src/testes/integracao
 
-  # ─── Testes E2E ──────────────────────────────────────────────────────────
+  # Testes E2E
   # ⏳ PENDENTE — habilitar quando as rotas Fastify estiverem implementadas
   #    e os testes em src/testes/e2e/ criados.
   #    Requer os mesmos services de MongoDB e Redis acima.
@@ -143,8 +141,8 @@ jobs:
   #     mongodb:
   #       image: mongo:8.0
   #       env:
-  #         MONGO_INITDB_ROOT_USERNAME: ${{ secrets.MONGO_INITDB_ROOT_USERNAME }}
-  #         MONGO_INITDB_ROOT_PASSWORD: ${{ secrets.MONGO_INITDB_ROOT_PASSWORD }}
+  #         MONGO_INITDB_ROOT_USERNAME: usuario
+  #         MONGO_INITDB_ROOT_PASSWORD: senha
   #       ports:
   #         - 27017:27017
   #       options: >-
@@ -164,7 +162,7 @@ jobs:
   #         - 6379:6379
   #
   #   env:
-  #     MONGO_URI: mongodb://${{ secrets.MONGO_INITDB_ROOT_USERNAME }}:${{ secrets.MONGO_INITDB_ROOT_PASSWORD }}@localhost:27017/bem-vindo-test
+  #     MONGO_URI: mongodb://usuario:senha@localhost:27017/bem-vindo-test
   #     REDIS_URL: redis://localhost:6379
   #     NODE_ENV: test
   #     JWT_SECRETO: secreto-de-teste-minimo-32-caracteres-aqui
@@ -183,7 +181,7 @@ jobs:
   #     - name: Testes E2E
   #       run: pnpm exec vitest run src/testes/e2e
 
-  # ─── Cobertura ───────────────────────────────────────────────────────────
+  # Cobertura
   # ⏳ PENDENTE — habilitar após os testes unitários atingirem cobertura
   #    mínima de 80% (configurado em vitest.config.ts).
   #
