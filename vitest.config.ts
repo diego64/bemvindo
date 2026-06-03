@@ -5,6 +5,9 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/testes/**/*.test.ts'],
+    // Testes E2E compartilham o mesmo banco de testes — execução sequencial evita conflitos
+    maxWorkers: 1,
+    minWorkers: 1,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

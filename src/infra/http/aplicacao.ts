@@ -41,10 +41,23 @@ export async function criarAplicacao(): Promise<FastifyInstance> {
     credentials: true,
   })
   await app.register(compress)
-  await app.register(rateLimit, { max: 100, timeWindow: '1 minute' })
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+    errorResponseBuilder: (_req, context) => ({
+      sucesso: false,
+      erro: {
+        mensagem: `Muitas requisições. Tente novamente em ${context.after}.`,
+        codigo: 'LIMITE_REQUISICOES',
+      },
+    }),
+  })
 
   await app.register(cookie)
-  await app.register(jwt, { secret: process.env.JWT_SECRETO ?? '' })
+  await app.register(jwt, {
+    secret: process.env.JWT_SECRETO ?? '',
+    sign: { expiresIn: process.env.JWT_EXPIRACAO_ACCESS ?? '1h' },
+  })
 
   if (process.env.NODE_ENV === 'development') {
     await app.register(swagger, {
