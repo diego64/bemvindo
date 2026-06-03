@@ -6,6 +6,8 @@ services:
       target: dev
     container_name: bv-api
     env_file: .env
+    environment:
+      LOG_FORMATO: json
     volumes:
       - .:/app
       - /app/node_modules
@@ -76,9 +78,75 @@ services:
     networks:
       - bv-network
 
+  bv-loki:
+    image: grafana/loki:3.4.3
+    container_name: bv-loki
+    user: "0"
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./observabilidade/loki/loki.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki/data
+    command: -config.file=/etc/loki/local-config.yaml
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - bv-network
+
+  bv-promtail:
+    image: grafana/promtail:3.4.3
+    container_name: bv-promtail
+    user: root
+    volumes:
+      - ./observabilidade/promtail/promtail.yaml:/etc/promtail/config.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yaml
+    depends_on:
+      bv-loki:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - bv-network
+
+  bv-grafana:
+    image: grafana/grafana:13.0.1
+    container_name: bv-grafana
+    env_file: .env
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USUARIO}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_SENHA}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_ROOT_URL: http://localhost:3001
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observabilidade/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observabilidade/grafana/dashboards:/etc/grafana/dashboards:ro
+    depends_on:
+      bv-loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - bv-network
+
 volumes:
   mongodb-data:
   redis-data:
+  loki-data:
+  grafana-data:
 
 networks:
   bv-network:
