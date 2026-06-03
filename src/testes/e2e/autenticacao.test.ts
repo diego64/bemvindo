@@ -169,6 +169,59 @@ describe('GET /autenticacao/perfil', () => {
   })
 })
 
+describe('PATCH /autenticacao/alterar-senha', () => {
+  it('deve retornar 200 ao alterar senha com sucesso', async () => {
+    const { token } = await criarAdminTeste(bd, app)
+
+    const resposta = await app.inject({
+      method: 'PATCH',
+      url: '/autenticacao/alterar-senha',
+      payload: { senhaAtual: 'Admin@12345', novaSenha: 'NovaSenha@99' },
+      headers: { authorization: `Bearer ${token}` },
+    })
+
+    expect(resposta.statusCode).toBe(200)
+    expect(resposta.json<{ sucesso: boolean }>().sucesso).toBe(true)
+  })
+
+  it('deve retornar 400 quando senha atual estiver incorreta', async () => {
+    const { token } = await criarAdminTeste(bd, app)
+
+    const resposta = await app.inject({
+      method: 'PATCH',
+      url: '/autenticacao/alterar-senha',
+      payload: { senhaAtual: 'SenhaErrada@99', novaSenha: 'NovaSenha@99' },
+      headers: { authorization: `Bearer ${token}` },
+    })
+
+    expect(resposta.statusCode).toBe(400)
+    expect(resposta.json<{ erro: { codigo: string } }>().erro.codigo).toBe('SENHA_ATUAL_INCORRETA')
+  })
+
+  it('deve retornar 400 quando nova senha tem menos de 8 caracteres', async () => {
+    const { token } = await criarAdminTeste(bd, app)
+
+    const resposta = await app.inject({
+      method: 'PATCH',
+      url: '/autenticacao/alterar-senha',
+      payload: { senhaAtual: 'Admin@12345', novaSenha: '123' },
+      headers: { authorization: `Bearer ${token}` },
+    })
+
+    expect(resposta.statusCode).toBe(400)
+  })
+
+  it('deve retornar 401 sem token de autenticação', async () => {
+    const resposta = await app.inject({
+      method: 'PATCH',
+      url: '/autenticacao/alterar-senha',
+      payload: { senhaAtual: 'Admin@12345', novaSenha: 'NovaSenha@99' },
+    })
+
+    expect(resposta.statusCode).toBe(401)
+  })
+})
+
 describe('POST /autenticacao/refresh-token → /logout', () => {
   it('deve renovar o token e retornar novo accessToken', async () => {
     await criarAdminTeste(bd, app)
