@@ -154,6 +154,78 @@ describe('POST /usuarios', () => {
   })
 })
 
+describe('PATCH /usuarios/:id', () => {
+  it('deve retornar 200 ao atualizar usuário com sucesso', async () => {
+    const criado = await app.inject({
+      method: 'POST',
+      url: '/usuarios',
+      payload: {
+        nome: 'Lucas',
+        sobrenome: 'Ferreira',
+        telefone: '11955554444',
+        email: 'lucas@empresa.com',
+        senha: 'senha12345',
+        papel: 'RECEPCIONISTA',
+      },
+      headers: { authorization: `Bearer ${tokenAdmin}` },
+    })
+    const id = criado.json<{ dados: { id: string } }>().dados.id
+
+    const resposta = await app.inject({
+      method: 'PATCH',
+      url: `/usuarios/${id}`,
+      payload: { nome: 'Lucas Atualizado' },
+      headers: { authorization: `Bearer ${tokenAdmin}` },
+    })
+
+    expect(resposta.statusCode).toBe(200)
+    expect(resposta.json<{ dados: { nome: string } }>().dados.nome).toBe('Lucas Atualizado')
+  })
+
+  it('deve retornar 404 para usuário inexistente', async () => {
+    const { ObjectId } = await import('mongodb')
+    const resposta = await app.inject({
+      method: 'PATCH',
+      url: `/usuarios/${new ObjectId().toString()}`,
+      payload: { nome: 'Qualquer' },
+      headers: { authorization: `Bearer ${tokenAdmin}` },
+    })
+
+    expect(resposta.statusCode).toBe(404)
+    expect(resposta.json<{ erro: { codigo: string } }>().erro.codigo).toBe('USUARIO_NAO_ENCONTRADO')
+  })
+
+  it('deve retornar 401 sem autenticação', async () => {
+    const { ObjectId } = await import('mongodb')
+    const resposta = await app.inject({
+      method: 'PATCH',
+      url: `/usuarios/${new ObjectId().toString()}`,
+      payload: { nome: 'Qualquer' },
+    })
+
+    expect(resposta.statusCode).toBe(401)
+  })
+
+  it('deve retornar 403 quando autenticado como RECEPCIONISTA', async () => {
+    const { ObjectId } = await import('mongodb')
+    const { PapelUsuario } = await import('@/compartilhado/tipos/papel-usuario')
+    const tokenRecep = app.jwt.sign({
+      usuarioId: new ObjectId().toString(),
+      email: 'recep@teste.com',
+      papel: PapelUsuario.RECEPCIONISTA,
+    })
+
+    const resposta = await app.inject({
+      method: 'PATCH',
+      url: `/usuarios/${new ObjectId().toString()}`,
+      payload: { nome: 'Qualquer' },
+      headers: { authorization: `Bearer ${tokenRecep}` },
+    })
+
+    expect(resposta.statusCode).toBe(403)
+  })
+})
+
 describe('GET /usuarios', () => {
   it('deve retornar 200 com lista paginada', async () => {
     const resposta = await app.inject({
