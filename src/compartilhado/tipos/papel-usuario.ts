@@ -1,0 +1,4 @@
+export enum PapelUsuario {
+  ADMINISTRADOR = 'ADMINISTRADOR',
+  RECEPCIONISTA = 'RECEPCIONISTA',
+}

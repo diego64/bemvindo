@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from 'fastify'
+import Fastify, { type FastifyInstance, type FastifyRequest, type FastifyReply } from 'fastify'
 import helmet from '@fastify/helmet'
 import cors from '@fastify/cors'
 import compress from '@fastify/compress'
@@ -14,6 +14,8 @@ import {
   hasZodFastifySchemaValidationErrors,
 } from 'fastify-type-provider-zod'
 import { ErroBase } from '@/compartilhado/erros/erro-base'
+import { PapelUsuario } from '@/compartilhado/tipos/papel-usuario'
+import '@/infra/http/tipos'
 
 export async function criarAplicacao(): Promise<FastifyInstance> {
   const app = Fastify(
@@ -88,6 +90,32 @@ export async function criarAplicacao(): Promise<FastifyInstance> {
       erro: { mensagem: 'Erro interno do servidor.', codigo: 'ERRO_INTERNO' },
     })
   })
+
+  app.decorate(
+    'autenticar',
+    async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+      try {
+        await request.jwtVerify()
+      } catch {
+        return reply.status(401).send({
+          sucesso: false,
+          erro: { mensagem: 'Não autenticado.', codigo: 'NAO_AUTENTICADO' },
+        })
+      }
+    },
+  )
+
+  app.decorate(
+    'autorizarAdmin',
+    async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+      if (request.user.papel !== PapelUsuario.ADMINISTRADOR) {
+        return reply.status(403).send({
+          sucesso: false,
+          erro: { mensagem: 'Sem permissão para realizar esta ação.', codigo: 'SEM_PERMISSAO' },
+        })
+      }
+    },
+  )
 
   app.get('/saude', () => ({
     sucesso: true,
