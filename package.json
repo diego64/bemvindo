@@ -4,7 +4,7 @@
   "description": "Sistema de recepção corporativa para controle de entrada de visitantes.",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/infra/http/servidor.ts",
+    "dev": "tsx watch --env-file=.env src/infra/http/servidor.ts",
     "build": "tsc",
     "start": "node dist/infra/http/servidor.js",
     "prepare": "husky",
