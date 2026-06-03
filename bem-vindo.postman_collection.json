@@ -1,0 +1,1430 @@
+{
+  "info": {
+    "name": "Bem-vindo API",
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "description": "Sistema de recepção corporativa — controle de entrada de visitantes.\n\n---\n\n## Fluxo recomendado (happy path)\n\n1. `POST /autenticacao/login` → salva `token` e `tokenExpiracao` automaticamente\n2. `POST /setores` → salva `setorId` automaticamente\n3. `POST /usuarios` → salva `usuarioId` automaticamente\n4. `POST /visitantes` → salva `visitanteId` automaticamente\n\n## Variáveis de coleção\n\n| Variável | Descrição | Preenchimento |\n|---|---|---|\n| `baseUrl` | URL base da API | Manual |\n| `token` | Access token JWT (1h) | Auto — POST /login |\n| `tokenExpiracao` | Timestamp ms de expiração | Auto — POST /login |\n| `usuarioId` | ID do último usuário criado | Auto — POST /usuarios |\n| `setorId` | ID do último setor criado | Auto — POST /setores |\n| `visitanteId` | ID do último visitante criado | Auto — POST /visitantes |\n\n## Auto-refresh de token\n\nO pre-request script de coleção verifica automaticamente se o token expirou. Se expirado, dispara `POST /autenticacao/refresh-token` e atualiza `token` antes de qualquer requisição autenticada. O cookie `refreshToken` (httpOnly) precisa estar salvo no cookie jar do Postman (preenchido pelo login).\n\n## Padrão de resposta\n\n```json\n// Sucesso\n{ \"sucesso\": true, \"dados\": {} }\n\n// Sucesso paginado\n{ \"sucesso\": true, \"dados\": [], \"paginacao\": { \"total\": 0, \"pagina\": 1, \"itensPorPagina\": 20, \"totalPaginas\": 0 } }\n\n// Erro\n{ \"sucesso\": false, \"erro\": { \"mensagem\": \"...\", \"codigo\": \"CODIGO_ERRO\" } }\n```",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",        "value": "http://localhost:3000", "type": "string" },
+    { "key": "token",          "value": "",                      "type": "string" },
+    { "key": "tokenExpiracao", "value": "0",                     "type": "string" },
+    { "key": "usuarioId",      "value": "",                      "type": "string" },
+    { "key": "setorId",        "value": "",                      "type": "string" },
+    { "key": "visitanteId",    "value": "",                      "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Rotas públicas não precisam de token",
+          "const url = pm.request.url.toString();",
+          "const rotasPublicas = ['/autenticacao/login', '/autenticacao/refresh-token', '/autenticacao/logout', '/saude'];",
+          "const ehPublica = rotasPublicas.some(r => url.includes(r));",
+          "if (ehPublica) return;",
+          "",
+          "// Auto-refresh: se token expirou (com margem de 60s) e temos expiracao registrada",
+          "const expiracao = parseInt(pm.collectionVariables.get('tokenExpiracao') || '0');",
+          "const temExpiracao = expiracao > 0;",
+          "const expirou = Date.now() >= (expiracao - 60000);",
+          "",
+          "if (temExpiracao && expirou) {",
+          "  pm.sendRequest({",
+          "    url: pm.collectionVariables.get('baseUrl') + '/autenticacao/refresh-token',",
+          "    method: 'POST'",
+          "  }, (err, res) => {",
+          "    if (!err && res.code === 200) {",
+          "      const corpo = res.json();",
+          "      if (corpo.sucesso && corpo.dados.accessToken) {",
+          "        pm.collectionVariables.set('token', corpo.dados.accessToken);",
+          "        pm.collectionVariables.set('tokenExpiracao', String(Date.now() + 55 * 60 * 1000));",
+          "        console.log('[auto-refresh] Token renovado com sucesso.');",
+          "      }",
+          "    } else {",
+          "      console.warn('[auto-refresh] Falha ao renovar token. Faça login novamente.');",
+          "    }",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Seed — Credenciais",
+      "description": "Logins pré-configurados com os usuários criados por `pnpm seed`.\n\nExecute `pnpm seed` (ou `pnpm seed:limpar`) antes de usar estes requests.\n\n**Senhas do seed:**\n- ADMINISTRADOR: `Admin@2026!`\n- RECEPCIONISTA: `Recep@2026!`\n\nCada request salva o token em `{{token}}` e `{{tokenExpiracao}}` automaticamente.\nEscolha o perfil desejado e execute o request antes de testar as demais rotas.",
+      "item": [
+        {
+          "name": "Login ADMIN 1 — Ana Carolina Ferreira",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/autenticacao/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["autenticacao", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana.carolina@bemvindo.com\",\n  \"senha\": \"Admin@2026!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Autentica como **Ana Carolina Ferreira** — ADMINISTRADOR (matrícula RECEP0000001).\n\nApós o login, `{{token}}` é preenchido e todas as rotas que exigem ADMINISTRADOR ficam disponíveis:\n- POST /usuarios\n- GET /usuarios\n- PATCH /usuarios/:id\n- POST /setores"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login bem-sucedido', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "if (res.sucesso && res.dados.accessToken) {",
+                  "  pm.collectionVariables.set('token', res.dados.accessToken);",
+                  "  pm.collectionVariables.set('tokenExpiracao', String(Date.now() + 55 * 60 * 1000));",
+                  "  console.log('Autenticado como: Ana Carolina Ferreira (ADMINISTRADOR)');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login ADMIN 2 — Bruno Santos",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/autenticacao/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["autenticacao", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"bruno.santos@bemvindo.com\",\n  \"senha\": \"Admin@2026!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Autentica como **Bruno Santos** — ADMINISTRADOR (matrícula RECEP0000002).\n\nMesmas permissões do ADMIN 1. Use este quando quiser testar operações de admin com um usuário diferente (ex.: verificar `criadoPor` / `atualizadoPor` nos registros)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login bem-sucedido', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "if (res.sucesso && res.dados.accessToken) {",
+                  "  pm.collectionVariables.set('token', res.dados.accessToken);",
+                  "  pm.collectionVariables.set('tokenExpiracao', String(Date.now() + 55 * 60 * 1000));",
+                  "  console.log('Autenticado como: Bruno Santos (ADMINISTRADOR)');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login RECEP 1 — Carlos Eduardo Lima",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/autenticacao/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["autenticacao", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"carlos.eduardo@bemvindo.com\",\n  \"senha\": \"Recep@2026!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Autentica como **Carlos Eduardo Lima** — RECEPCIONISTA (matrícula RECEP0000003).\n\nPermissões disponíveis:\n- POST /visitantes (com restrições de horário/dia)\n- PATCH /visitantes/:id (até 30 min após o cadastro)\n- GET /visitantes/hoje\n- GET /visitantes\n- GET /setores\n- GET /autenticacao/perfil"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login bem-sucedido', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "if (res.sucesso && res.dados.accessToken) {",
+                  "  pm.collectionVariables.set('token', res.dados.accessToken);",
+                  "  pm.collectionVariables.set('tokenExpiracao', String(Date.now() + 55 * 60 * 1000));",
+                  "  console.log('Autenticado como: Carlos Eduardo Lima (RECEPCIONISTA)');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login RECEP 2 — Diana Oliveira",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/autenticacao/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["autenticacao", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"diana.oliveira@bemvindo.com\",\n  \"senha\": \"Recep@2026!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Autentica como **Diana Oliveira** — RECEPCIONISTA (matrícula RECEP0000004).\n\nUse este quando quiser testar operações de recepcionista com um segundo usuário (ex.: verificar snapshot de `recepcionistaNome` / `recepcionistaMatricula` nos visitantes)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Login bem-sucedido', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "if (res.sucesso && res.dados.accessToken) {",
+                  "  pm.collectionVariables.set('token', res.dados.accessToken);",
+                  "  pm.collectionVariables.set('tokenExpiracao', String(Date.now() + 55 * 60 * 1000));",
+                  "  console.log('Autenticado como: Diana Oliveira (RECEPCIONISTA)');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Saúde",
+      "description": "Verificação de disponibilidade da API.",
+      "item": [
+        {
+          "name": "GET /saude",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/saude",
+              "host": ["{{baseUrl}}"],
+              "path": ["saude"]
+            },
+            "description": "Verifica se a API está operacional. Rota pública, sem autenticação."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": true,\n  \"dados\": {\n    \"status\": \"ok\",\n    \"ambiente\": \"development\"\n  }\n}",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/saude", "host": ["{{baseUrl}}"], "path": ["saude"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('sucesso true', () => pm.expect(pm.response.json().sucesso).to.be.true);",
+                  "pm.test('status ok', () => pm.expect(pm.response.json().dados.status).to.equal('ok'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Autenticação",
+      "description": "Gerenciamento de sessão: login, refresh token, logout, perfil e alteração de senha.\n\n- **Login / Refresh**: rate limit 10 req / 15 min\n- **Refresh token**: armazenado em cookie httpOnly `refreshToken` (7 dias, Redis)\n- **Access token**: retornado no body (1 hora)",
+      "item": [
+        {
+          "name": "POST /autenticacao/login",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/autenticacao/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["autenticacao", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@bemvindo.com\",\n  \"senha\": \"1qaz2sx12\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Autentica o usuário e retorna o access token JWT.\n\nO refresh token é gravado automaticamente em cookie httpOnly `refreshToken`.\n\n**Rate limit:** 10 requisições / 15 minutos\n\n**Após o login**, `token` e `tokenExpiracao` são salvos automaticamente nas variáveis de coleção."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type", "value": "application/json" },
+                { "key": "Set-Cookie", "value": "refreshToken=<hash>; Path=/; HttpOnly; SameSite=Strict" }
+              ],
+              "body": "{\n  \"sucesso\": true,\n  \"dados\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c3VhcmlvSWQiOiI2ODNmMWEyYjNjNGQ1ZTZmN2E4YjljMGUiLCJlbWFpbCI6ImFkbWluQGJlbXZpbmRvLmNvbSIsInBhcGVsIjoiQURNSU5JU1RSQURPUiIsImlhdCI6MTc0ODk2ODAwMCwiZXhwIjoxNzQ4OTcxNjAwfQ.assinatura\",\n    \"usuario\": {\n      \"id\": \"683f1a2b3c4d5e6f7a8b9c0e\",\n      \"nome\": \"Admin\",\n      \"sobrenome\": \"Sistema\",\n      \"email\": \"admin@bemvindo.com\",\n      \"papel\": \"ADMINISTRADOR\"\n    }\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@bemvindo.com\",\n  \"senha\": \"1qaz2sx12\"\n}" },
+                "url": { "raw": "{{baseUrl}}/autenticacao/login", "host": ["{{baseUrl}}"], "path": ["autenticacao", "login"] }
+              }
+            },
+            {
+              "name": "401 Credenciais inválidas",
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": false,\n  \"erro\": {\n    \"mensagem\": \"Email ou senha inválidos.\",\n    \"codigo\": \"CREDENCIAIS_INVALIDAS\"\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@bemvindo.com\",\n  \"senha\": \"senha-errada\"\n}" },
+                "url": { "raw": "{{baseUrl}}/autenticacao/login", "host": ["{{baseUrl}}"], "path": ["autenticacao", "login"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('sucesso true', () => pm.expect(res.sucesso).to.be.true);",
+                  "pm.test('accessToken é string', () => pm.expect(res.dados.accessToken).to.be.a('string'));",
+                  "pm.test('usuario presente', () => pm.expect(res.dados.usuario).to.be.an('object'));",
+                  "pm.test('papel válido', () => pm.expect(['ADMINISTRADOR', 'RECEPCIONISTA']).to.include(res.dados.usuario.papel));",
+                  "if (res.sucesso && res.dados.accessToken) {",
+                  "  pm.collectionVariables.set('token', res.dados.accessToken);",
+                  "  // JWT expira em 1h — guarda com margem de 5 min",
+                  "  pm.collectionVariables.set('tokenExpiracao', String(Date.now() + 55 * 60 * 1000));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /autenticacao/refresh-token",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/autenticacao/refresh-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["autenticacao", "refresh-token"]
+            },
+            "description": "Renova o access token usando o cookie httpOnly `refreshToken` (definido pelo login).\n\nO Postman precisa ter o cookie salvo no cookie jar. Ative **\"Automatically follow redirects\"** e **\"Send cookies\"** nas configurações.\n\n**Rate limit:** 10 requisições / 15 minutos"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": true,\n  \"dados\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.novo-token.assinatura\"\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/autenticacao/refresh-token", "host": ["{{baseUrl}}"], "path": ["autenticacao", "refresh-token"] }
+              }
+            },
+            {
+              "name": "401 Cookie ausente ou expirado",
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": false,\n  \"erro\": {\n    \"mensagem\": \"Token inválido ou expirado.\",\n    \"codigo\": \"TOKEN_INVALIDO\"\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/autenticacao/refresh-token", "host": ["{{baseUrl}}"], "path": ["autenticacao", "refresh-token"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "if (res.sucesso && res.dados.accessToken) {",
+                  "  pm.collectionVariables.set('token', res.dados.accessToken);",
+                  "  pm.collectionVariables.set('tokenExpiracao', String(Date.now() + 55 * 60 * 1000));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /autenticacao/logout",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/autenticacao/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["autenticacao", "logout"]
+            },
+            "description": "Invalida o refresh token no Redis e limpa o cookie httpOnly `refreshToken`. O access token expira naturalmente em 1h."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": true,\n  \"dados\": {\n    \"mensagem\": \"Logout realizado.\"\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/autenticacao/logout", "host": ["{{baseUrl}}"], "path": ["autenticacao", "logout"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('token', '');",
+                  "  pm.collectionVariables.set('tokenExpiracao', '0');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /autenticacao/perfil",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/autenticacao/perfil",
+              "host": ["{{baseUrl}}"],
+              "path": ["autenticacao", "perfil"]
+            },
+            "description": "Retorna os dados completos do usuário autenticado. Requer Bearer token."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": true,\n  \"dados\": {\n    \"id\": \"683f1a2b3c4d5e6f7a8b9c0e\",\n    \"nome\": \"Admin\",\n    \"sobrenome\": \"Sistema\",\n    \"email\": \"admin@bemvindo.com\",\n    \"papel\": \"ADMINISTRADOR\"\n  }\n}",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/autenticacao/perfil", "host": ["{{baseUrl}}"], "path": ["autenticacao", "perfil"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('sucesso true', () => pm.expect(res.sucesso).to.be.true);",
+                  "pm.test('email presente', () => pm.expect(res.dados.email).to.be.a('string'));",
+                  "pm.test('papel válido', () => pm.expect(['ADMINISTRADOR', 'RECEPCIONISTA']).to.include(res.dados.papel));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /autenticacao/alterar-senha",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/autenticacao/alterar-senha",
+              "host": ["{{baseUrl}}"],
+              "path": ["autenticacao", "alterar-senha"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"senhaAtual\": \"1qaz2sx12\",\n  \"novaSenha\": \"NovaSenha@2026\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Altera a senha do usuário autenticado. Requer Bearer token.\n\n- `senhaAtual` — senha atual em texto plano\n- `novaSenha` — nova senha, mínimo 8 caracteres (armazenada com hash scrypt)"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": true,\n  \"dados\": {\n    \"mensagem\": \"Senha alterada com sucesso.\"\n  }\n}",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"senhaAtual\": \"1qaz2sx12\",\n  \"novaSenha\": \"NovaSenha@2026\"\n}" },
+                "url": { "raw": "{{baseUrl}}/autenticacao/alterar-senha", "host": ["{{baseUrl}}"], "path": ["autenticacao", "alterar-senha"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('sucesso true', () => pm.expect(pm.response.json().sucesso).to.be.true);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Usuários",
+      "description": "CRUD de recepcionistas e administradores.\n\n**Acesso:** somente `ADMINISTRADOR`.\n\nA matrícula (`RECEP0000001`) é gerada de forma atômica via contador MongoDB.",
+      "item": [
+        {
+          "name": "POST /usuarios",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/usuarios",
+              "host": ["{{baseUrl}}"],
+              "path": ["usuarios"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Maria\",\n  \"sobrenome\": \"Oliveira\",\n  \"telefone\": \"11999990001\",\n  \"email\": \"maria.oliveira@bemvindo.com\",\n  \"senha\": \"Senha@12345\",\n  \"papel\": \"RECEPCIONISTA\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Cadastra um novo usuário. Requer papel `ADMINISTRADOR`.\n\n**Campos:**\n- `nome` / `sobrenome` — mín. 2 caracteres, armazenados com `.trim()`\n- `email` — RFC 5321, armazenado em lowercase\n- `senha` — mín. 8 chars (hash scrypt, nunca retornada)\n- `papel` — `RECEPCIONISTA` (padrão) ou `ADMINISTRADOR`\n\nA matrícula `RECEP0000001` é gerada automaticamente.\nO e-mail deve ser único no sistema."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": true,\n  \"dados\": {\n    \"id\": \"683f1a2b3c4d5e6f7a8b9c0e\",\n    \"nome\": \"Maria\",\n    \"sobrenome\": \"Oliveira\",\n    \"email\": \"maria.oliveira@bemvindo.com\",\n    \"matricula\": \"RECEP0000002\",\n    \"papel\": \"RECEPCIONISTA\",\n    \"criadoEm\": \"2026-06-03T14:00:00.000Z\",\n    \"atualizadoEm\": \"2026-06-03T14:00:00.000Z\"\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"nome\": \"Maria\",\n  \"sobrenome\": \"Oliveira\",\n  \"telefone\": \"11999990001\",\n  \"email\": \"maria.oliveira@bemvindo.com\",\n  \"senha\": \"Senha@12345\",\n  \"papel\": \"RECEPCIONISTA\"\n}" },
+                "url": { "raw": "{{baseUrl}}/usuarios", "host": ["{{baseUrl}}"], "path": ["usuarios"] }
+              }
+            },
+            {
+              "name": "409 E-mail já cadastrado",
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": false,\n  \"erro\": {\n    \"mensagem\": \"Email já cadastrado.\",\n    \"codigo\": \"EMAIL_JA_CADASTRADO\"\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"email\": \"maria.oliveira@bemvindo.com\",\n  \"senha\": \"Senha@12345\"\n}" },
+                "url": { "raw": "{{baseUrl}}/usuarios", "host": ["{{baseUrl}}"], "path": ["usuarios"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.test('sucesso true', () => pm.expect(res.sucesso).to.be.true);",
+                  "pm.test('matricula formato correto', () => pm.expect(res.dados.matricula).to.match(/^RECEP\\d{7}$/));",
+                  "pm.test('senha não exposta', () => pm.expect(res.dados).to.not.have.property('senha'));",
+                  "pm.test('senhaHash não exposta', () => pm.expect(res.dados).to.not.have.property('senhaHash'));",
+                  "if (res.sucesso && res.dados.id) {",
+                  "  pm.collectionVariables.set('usuarioId', res.dados.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /usuarios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/usuarios?pagina=1&itensPorPagina=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["usuarios"],
+              "query": [
+                { "key": "pagina",         "value": "1",  "description": "Página (padrão: 1)" },
+                { "key": "itensPorPagina", "value": "20", "description": "Itens por página (padrão: 20, máx: 100)" }
+              ]
+            },
+            "description": "Lista todos os usuários paginados. Requer papel `ADMINISTRADOR`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": true,\n  \"usuarios\": [\n    {\n      \"id\": \"683f1a2b3c4d5e6f7a8b9c0e\",\n      \"nome\": \"Admin\",\n      \"sobrenome\": \"Sistema\",\n      \"email\": \"admin@bemvindo.com\",\n      \"matricula\": \"RECEP0000001\",\n      \"papel\": \"ADMINISTRADOR\",\n      \"criadoEm\": \"2026-01-01T12:00:00.000Z\",\n      \"atualizadoEm\": \"2026-01-01T12:00:00.000Z\"\n    }\n  ],\n  \"paginacao\": {\n    \"total\": 1,\n    \"pagina\": 1,\n    \"itensPorPagina\": 20,\n    \"totalPaginas\": 1\n  }\n}",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/usuarios?pagina=1&itensPorPagina=20", "host": ["{{baseUrl}}"], "path": ["usuarios"], "query": [{ "key": "pagina", "value": "1" }, { "key": "itensPorPagina", "value": "20" }] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('sucesso true', () => pm.expect(res.sucesso).to.be.true);",
+                  "pm.test('paginacao presente', () => pm.expect(res.paginacao).to.be.an('object'));",
+                  "pm.test('paginacao.total é numero', () => pm.expect(res.paginacao.total).to.be.a('number'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /usuarios/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/usuarios/{{usuarioId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["usuarios", "{{usuarioId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Maria Atualizada\",\n  \"telefone\": \"11988880001\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Atualiza dados de um usuário. Requer papel `ADMINISTRADOR`.\n\nAo menos um dos campos deve ser informado: `nome`, `sobrenome` ou `telefone`.\n\nUsa `{{usuarioId}}` salvo pelo `POST /usuarios`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": true,\n  \"dados\": {\n    \"id\": \"683f1a2b3c4d5e6f7a8b9c0e\",\n    \"nome\": \"Maria Atualizada\",\n    \"sobrenome\": \"Oliveira\",\n    \"email\": \"maria.oliveira@bemvindo.com\",\n    \"matricula\": \"RECEP0000002\",\n    \"papel\": \"RECEPCIONISTA\",\n    \"criadoEm\": \"2026-06-03T14:00:00.000Z\",\n    \"atualizadoEm\": \"2026-06-03T15:30:00.000Z\"\n  }\n}",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"nome\": \"Maria Atualizada\",\n  \"telefone\": \"11988880001\"\n}" },
+                "url": { "raw": "{{baseUrl}}/usuarios/{{usuarioId}}", "host": ["{{baseUrl}}"], "path": ["usuarios", "{{usuarioId}}"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('sucesso true', () => pm.expect(pm.response.json().sucesso).to.be.true);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Setores",
+      "description": "Gestão dos setores de destino dos visitantes.\n\n- **Cadastro:** somente `ADMINISTRADOR`\n- **Listagem:** qualquer usuário autenticado\n- O nome do setor é único no sistema (índice MongoDB)",
+      "item": [
+        {
+          "name": "POST /setores",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/setores",
+              "host": ["{{baseUrl}}"],
+              "path": ["setores"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Tecnologia da Informação\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Cadastra um novo setor de destino. Requer papel `ADMINISTRADOR`.\n\n- `nome` — mín. 2 caracteres, único no sistema (case-sensitive na persistência, normalizado com `.trim()`)"
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": true,\n  \"dados\": {\n    \"id\": \"683f1a2b3c4d5e6f7a8b9c0d\",\n    \"nome\": \"Tecnologia da Informação\",\n    \"criadoEm\": \"2026-06-03T14:00:00.000Z\"\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"nome\": \"Tecnologia da Informação\"\n}" },
+                "url": { "raw": "{{baseUrl}}/setores", "host": ["{{baseUrl}}"], "path": ["setores"] }
+              }
+            },
+            {
+              "name": "409 Nome duplicado",
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": false,\n  \"erro\": {\n    \"mensagem\": \"Já existe um setor com este nome.\",\n    \"codigo\": \"NOME_SETOR_JA_CADASTRADO\"\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"nome\": \"Tecnologia da Informação\"\n}" },
+                "url": { "raw": "{{baseUrl}}/setores", "host": ["{{baseUrl}}"], "path": ["setores"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.test('sucesso true', () => pm.expect(res.sucesso).to.be.true);",
+                  "pm.test('id presente', () => pm.expect(res.dados.id).to.be.a('string').with.lengthOf(24));",
+                  "pm.test('criadoEm é ISO 8601', () => pm.expect(new Date(res.dados.criadoEm).toISOString()).to.equal(res.dados.criadoEm));",
+                  "if (res.sucesso && res.dados.id) {",
+                  "  pm.collectionVariables.set('setorId', res.dados.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /setores",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/setores",
+              "host": ["{{baseUrl}}"],
+              "path": ["setores"]
+            },
+            "description": "Lista todos os setores ordenados por nome (A→Z). Requer autenticação (qualquer papel)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": true,\n  \"dados\": [\n    {\n      \"id\": \"683f1a2b3c4d5e6f7a8b9c0d\",\n      \"nome\": \"Recursos Humanos\",\n      \"criadoEm\": \"2026-06-01T10:00:00.000Z\"\n    },\n    {\n      \"id\": \"683f1a2b3c4d5e6f7a8b9c1d\",\n      \"nome\": \"Tecnologia da Informação\",\n      \"criadoEm\": \"2026-06-03T14:00:00.000Z\"\n    }\n  ]\n}",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/setores", "host": ["{{baseUrl}}"], "path": ["setores"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('sucesso true', () => pm.expect(res.sucesso).to.be.true);",
+                  "pm.test('dados é array', () => pm.expect(res.dados).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Visitantes",
+      "description": "Módulo principal — registro e consulta de visitantes.\n\n**Acesso:** qualquer usuário autenticado (RECEPCIONISTA ou ADMINISTRADOR).\n\n**Restrições de cadastro:**\n- Horário: 08:00–16:59 (America/Sao_Paulo)\n- Dias: segunda a sexta, exceto feriados nacionais (incluindo Sexta-feira Santa e Corpus Christi)\n- CPF único por dia calendário (BRT)\n\n**Regra de edição:**\n- RECEPCIONISTA: até 30 min após o cadastro\n- ADMINISTRADOR: sem restrição de tempo",
+      "item": [
+        {
+          "name": "POST /visitantes",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/visitantes",
+              "host": ["{{baseUrl}}"],
+              "path": ["visitantes"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomeCompleto\": \"João da Silva\",\n  \"cpf\": \"529.982.247-25\",\n  \"dataNascimento\": \"1990-06-15\",\n  \"telefone\": \"11999990002\",\n  \"email\": \"joao.silva@email.com\",\n  \"setorDestinoNome\": \"Recursos Humanos\",\n  \"observacao\": \"Visita agendada com RH\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Registra a entrada de um visitante. Requer autenticação.\n\n**Campos:**\n- `cpf` — formato `000.000.000-00` com dígitos verificadores válidos\n- `dataNascimento` — formato ISO 8601 (`YYYY-MM-DD`)\n- `setorDestinoNome` — nome exato do setor cadastrado no sistema (use `GET /setores` para listar os disponíveis)\n- `observacao` — opcional\n\nO código `VIST0000001` é gerado automaticamente via contador atômico.\nO snapshot do recepcionista (nome, matrícula) é gravado no momento do cadastro.\n\nRetorna `404 SETOR_NAO_ENCONTRADO` se o nome do setor não existir."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": true,\n  \"dados\": {\n    \"id\": \"683f1a2b3c4d5e6f7a8b9c0f\",\n    \"codigoVisitante\": \"VIST0000001\",\n    \"cpf\": \"52998224725\",\n    \"nomeCompleto\": \"João da Silva\",\n    \"dataNascimento\": \"1990-06-15T00:00:00.000Z\",\n    \"telefone\": \"11999990002\",\n    \"email\": \"joao.silva@email.com\",\n    \"setorDestinoId\": \"683f1a2b3c4d5e6f7a8b9c0d\",\n    \"observacao\": \"Visita agendada com RH\",\n    \"recepcionistaId\": \"683f1a2b3c4d5e6f7a8b9c0e\",\n    \"recepcionistaNome\": \"Admin Sistema\",\n    \"recepcionistaMatricula\": \"RECEP0000001\",\n    \"criadoEm\": \"2026-06-03T14:30:00.000Z\",\n    \"atualizadoEm\": \"2026-06-03T14:30:00.000Z\"\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"nomeCompleto\": \"João da Silva\",\n  \"cpf\": \"529.982.247-25\",\n  \"dataNascimento\": \"1990-06-15\",\n  \"telefone\": \"11999990002\",\n  \"email\": \"joao.silva@email.com\",\n  \"setorDestinoNome\": \"Recursos Humanos\",\n  \"observacao\": \"Visita agendada com RH\"\n}" },
+                "url": { "raw": "{{baseUrl}}/visitantes", "host": ["{{baseUrl}}"], "path": ["visitantes"] }
+              }
+            },
+            {
+              "name": "404 Setor não encontrado",
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": false,\n  \"erro\": {\n    \"mensagem\": \"Setor não encontrado.\",\n    \"codigo\": \"SETOR_NAO_ENCONTRADO\"\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"nomeCompleto\": \"João da Silva\",\n  \"cpf\": \"529.982.247-25\",\n  \"dataNascimento\": \"1990-06-15\",\n  \"telefone\": \"11999990002\",\n  \"email\": \"joao.silva@email.com\",\n  \"setorDestinoNome\": \"Setor Inexistente\"\n}" },
+                "url": { "raw": "{{baseUrl}}/visitantes", "host": ["{{baseUrl}}"], "path": ["visitantes"] }
+              }
+            },
+            {
+              "name": "409 CPF já cadastrado hoje",
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": false,\n  \"erro\": {\n    \"mensagem\": \"Visitante já cadastrado hoje.\",\n    \"codigo\": \"VISITANTE_JA_CADASTRADO_HOJE\"\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"cpf\": \"529.982.247-25\"\n}" },
+                "url": { "raw": "{{baseUrl}}/visitantes", "host": ["{{baseUrl}}"], "path": ["visitantes"] }
+              }
+            },
+            {
+              "name": "403 Fora do horário",
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": false,\n  \"erro\": {\n    \"mensagem\": \"Cadastro permitido apenas entre 08:00 e 16:59 (horário de Brasília).\",\n    \"codigo\": \"FORA_DO_HORARIO_PERMITIDO\"\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{}" },
+                "url": { "raw": "{{baseUrl}}/visitantes", "host": ["{{baseUrl}}"], "path": ["visitantes"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.test('sucesso true', () => pm.expect(res.sucesso).to.be.true);",
+                  "pm.test('codigoVisitante formato VIST0000000', () => pm.expect(res.dados.codigoVisitante).to.match(/^VIST\\d{7}$/));",
+                  "pm.test('cpf normalizado (sem máscara)', () => pm.expect(res.dados.cpf).to.match(/^\\d{11}$/));",
+                  "pm.test('recepcionista snapshot presente', () => {",
+                  "  pm.expect(res.dados.recepcionistaNome).to.be.a('string');",
+                  "  pm.expect(res.dados.recepcionistaMatricula).to.match(/^RECEP\\d{7}$/);",
+                  "});",
+                  "if (res.sucesso && res.dados.id) {",
+                  "  pm.collectionVariables.set('visitanteId', res.dados.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /visitantes/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/visitantes/{{visitanteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["visitantes", "{{visitanteId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomeCompleto\": \"João da Silva Atualizado\",\n  \"telefone\": \"11988880002\",\n  \"observacao\": \"Reunião remarcada para sala 3\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Edita dados de um visitante. Requer autenticação.\n\n**Campos editáveis:** `nomeCompleto`, `telefone`, `email`, `dataNascimento`, `setorDestinoId`, `observacao`\n\nAo menos um campo deve ser informado.\n\n**Regras de edição por papel:**\n- `RECEPCIONISTA` → apenas até 30 min após o cadastro\n- `ADMINISTRADOR` → sem restrição de tempo\n\nUsa `{{visitanteId}}` salvo pelo `POST /visitantes`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": true,\n  \"dados\": {\n    \"id\": \"683f1a2b3c4d5e6f7a8b9c0f\",\n    \"codigoVisitante\": \"VIST0000001\",\n    \"cpf\": \"52998224725\",\n    \"nomeCompleto\": \"João da Silva Atualizado\",\n    \"dataNascimento\": \"1990-06-15T00:00:00.000Z\",\n    \"telefone\": \"11988880002\",\n    \"email\": \"joao.silva@email.com\",\n    \"setorDestinoId\": \"683f1a2b3c4d5e6f7a8b9c0d\",\n    \"observacao\": \"Reunião remarcada para sala 3\",\n    \"recepcionistaId\": \"683f1a2b3c4d5e6f7a8b9c0e\",\n    \"recepcionistaNome\": \"Admin Sistema\",\n    \"recepcionistaMatricula\": \"RECEP0000001\",\n    \"criadoEm\": \"2026-06-03T14:30:00.000Z\",\n    \"atualizadoEm\": \"2026-06-03T14:45:00.000Z\"\n  }\n}",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"nomeCompleto\": \"João da Silva Atualizado\",\n  \"telefone\": \"11988880002\"\n}" },
+                "url": { "raw": "{{baseUrl}}/visitantes/{{visitanteId}}", "host": ["{{baseUrl}}"], "path": ["visitantes", "{{visitanteId}}"] }
+              }
+            },
+            {
+              "name": "403 Janela de edição expirada",
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": false,\n  \"erro\": {\n    \"mensagem\": \"Edição permitida apenas até 30 minutos após o cadastro.\",\n    \"codigo\": \"VISITANTE_NAO_PODE_SER_EDITADO\"\n  }\n}",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"nomeCompleto\": \"Tentativa Após 30 min\"\n}" },
+                "url": { "raw": "{{baseUrl}}/visitantes/{{visitanteId}}", "host": ["{{baseUrl}}"], "path": ["visitantes", "{{visitanteId}}"] }
+              }
+            },
+            {
+              "name": "404 Visitante não encontrado",
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": false,\n  \"erro\": {\n    \"mensagem\": \"Visitante não encontrado.\",\n    \"codigo\": \"VISITANTE_NAO_ENCONTRADO\"\n  }\n}",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"nomeCompleto\": \"Qualquer\"\n}" },
+                "url": { "raw": "{{baseUrl}}/visitantes/000000000000000000000000", "host": ["{{baseUrl}}"], "path": ["visitantes", "000000000000000000000000"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('sucesso true', () => pm.expect(res.sucesso).to.be.true);",
+                  "pm.test('atualizadoEm mudou', () => pm.expect(res.dados.atualizadoEm).to.not.equal(res.dados.criadoEm));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /visitantes/hoje",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/visitantes/hoje?pagina=1&itensPorPagina=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["visitantes", "hoje"],
+              "query": [
+                { "key": "pagina",         "value": "1",           "description": "Página (padrão: 1)" },
+                { "key": "itensPorPagina", "value": "20",          "description": "Itens por página (padrão: 20, máx: 100)" },
+                { "key": "setorDestinoId", "value": "{{setorId}}", "disabled": true, "description": "Filtrar por ID do setor (opcional)" },
+                { "key": "nomeCompleto",   "value": "João",        "disabled": true, "description": "Filtrar por nome parcial — case-insensitive (opcional)" }
+              ]
+            },
+            "description": "Lista todos os visitantes do dia calendário atual em `America/Sao_Paulo`. Requer autenticação.\n\nOs filtros `setorDestinoId` e `nomeCompleto` são opcionais e podem ser usados em conjunto."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": true,\n  \"dados\": [\n    {\n      \"id\": \"683f1a2b3c4d5e6f7a8b9c0f\",\n      \"codigoVisitante\": \"VIST0000001\",\n      \"cpf\": \"52998224725\",\n      \"nomeCompleto\": \"João da Silva\",\n      \"dataNascimento\": \"1990-06-15T00:00:00.000Z\",\n      \"telefone\": \"11999990002\",\n      \"email\": \"joao.silva@email.com\",\n      \"setorDestinoId\": \"683f1a2b3c4d5e6f7a8b9c0d\",\n      \"observacao\": \"Visita agendada com RH\",\n      \"recepcionistaId\": \"683f1a2b3c4d5e6f7a8b9c0e\",\n      \"recepcionistaNome\": \"Admin Sistema\",\n      \"recepcionistaMatricula\": \"RECEP0000001\",\n      \"criadoEm\": \"2026-06-03T14:30:00.000Z\",\n      \"atualizadoEm\": \"2026-06-03T14:30:00.000Z\"\n    }\n  ],\n  \"paginacao\": {\n    \"total\": 1,\n    \"pagina\": 1,\n    \"itensPorPagina\": 20,\n    \"totalPaginas\": 1\n  }\n}",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/visitantes/hoje?pagina=1&itensPorPagina=20", "host": ["{{baseUrl}}"], "path": ["visitantes", "hoje"], "query": [{ "key": "pagina", "value": "1" }, { "key": "itensPorPagina", "value": "20" }] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('sucesso true', () => pm.expect(res.sucesso).to.be.true);",
+                  "pm.test('dados é array', () => pm.expect(res.dados).to.be.an('array'));",
+                  "pm.test('paginacao.total >= 0', () => pm.expect(res.paginacao.total).to.be.at.least(0));",
+                  "pm.test('totalPaginas coerente', () => {",
+                  "  const esperado = Math.ceil(res.paginacao.total / res.paginacao.itensPorPagina) || 0;",
+                  "  pm.expect(res.paginacao.totalPaginas).to.equal(esperado);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /visitantes — histórico por CPF",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/visitantes?cpf=529.982.247-25&pagina=1&itensPorPagina=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["visitantes"],
+              "query": [
+                { "key": "cpf",            "value": "529.982.247-25", "description": "CPF com ou sem máscara — obrigatório se nomeCompleto não for informado" },
+                { "key": "pagina",         "value": "1" },
+                { "key": "itensPorPagina", "value": "20" }
+              ]
+            },
+            "description": "Busca o histórico completo de visitas por CPF. Requer autenticação.\n\n- `cpf` aceita `000.000.000-00` ou `00000000000` (normalizado internamente)\n- Ao menos `cpf` ou `nomeCompleto` é obrigatório\n- Ordenado por `criadoEm` decrescente (visitas mais recentes primeiro)"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": true,\n  \"dados\": [\n    {\n      \"id\": \"683f1a2b3c4d5e6f7a8b9c0f\",\n      \"codigoVisitante\": \"VIST0000001\",\n      \"cpf\": \"52998224725\",\n      \"nomeCompleto\": \"João da Silva\",\n      \"criadoEm\": \"2026-06-03T14:30:00.000Z\",\n      \"atualizadoEm\": \"2026-06-03T14:30:00.000Z\"\n    }\n  ],\n  \"paginacao\": {\n    \"total\": 1,\n    \"pagina\": 1,\n    \"itensPorPagina\": 20,\n    \"totalPaginas\": 1\n  }\n}",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/visitantes?cpf=529.982.247-25&pagina=1&itensPorPagina=20", "host": ["{{baseUrl}}"], "path": ["visitantes"], "query": [{ "key": "cpf", "value": "529.982.247-25" }, { "key": "pagina", "value": "1" }, { "key": "itensPorPagina", "value": "20" }] }
+              }
+            },
+            {
+              "name": "400 Dados inválidos (sem filtro)",
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": false,\n  \"erro\": {\n    \"mensagem\": \"Dados inválidos.\",\n    \"codigo\": \"DADOS_INVALIDOS\"\n  }\n}",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/visitantes?pagina=1", "host": ["{{baseUrl}}"], "path": ["visitantes"], "query": [{ "key": "pagina", "value": "1" }] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('sucesso true', () => pm.expect(res.sucesso).to.be.true);",
+                  "pm.test('paginacao presente', () => pm.expect(res.paginacao).to.be.an('object'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /visitantes — histórico por nome",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/visitantes?nomeCompleto=João&pagina=1&itensPorPagina=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["visitantes"],
+              "query": [
+                { "key": "nomeCompleto",   "value": "João", "description": "Nome parcial — obrigatório se cpf não for informado (case-insensitive)" },
+                { "key": "pagina",         "value": "1" },
+                { "key": "itensPorPagina", "value": "20" }
+              ]
+            },
+            "description": "Busca o histórico completo de visitas por nome (parcial, case-insensitive). Requer autenticação.\n\nAo menos `cpf` ou `nomeCompleto` é obrigatório."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": true,\n  \"dados\": [\n    {\n      \"id\": \"683f1a2b3c4d5e6f7a8b9c0f\",\n      \"codigoVisitante\": \"VIST0000001\",\n      \"cpf\": \"52998224725\",\n      \"nomeCompleto\": \"João da Silva\",\n      \"criadoEm\": \"2026-06-03T14:30:00.000Z\",\n      \"atualizadoEm\": \"2026-06-03T14:30:00.000Z\"\n    }\n  ],\n  \"paginacao\": {\n    \"total\": 1,\n    \"pagina\": 1,\n    \"itensPorPagina\": 20,\n    \"totalPaginas\": 1\n  }\n}",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/visitantes?nomeCompleto=João&pagina=1&itensPorPagina=20", "host": ["{{baseUrl}}"], "path": ["visitantes"], "query": [{ "key": "nomeCompleto", "value": "João" }, { "key": "pagina", "value": "1" }, { "key": "itensPorPagina", "value": "20" }] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('sucesso true', () => pm.expect(pm.response.json().sucesso).to.be.true);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cenários de Erro",
+      "description": "Referência de erros comuns da API. Use estes requests para validar o comportamento dos erros em integrações.\n\nTodos os erros seguem o padrão:\n```json\n{ \"sucesso\": false, \"erro\": { \"mensagem\": \"...\", \"codigo\": \"CODIGO_ERRO\" } }\n```",
+      "item": [
+        {
+          "name": "401 — Token ausente",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/autenticacao/perfil",
+              "host": ["{{baseUrl}}"],
+              "path": ["autenticacao", "perfil"]
+            },
+            "description": "Acessa uma rota protegida sem enviar o Bearer token.\n\n**Código esperado:** `NAO_AUTENTICADO`"
+          },
+          "response": [
+            {
+              "name": "401 Não Autenticado",
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": false,\n  \"erro\": {\n    \"mensagem\": \"Não autenticado.\",\n    \"codigo\": \"NAO_AUTENTICADO\"\n  }\n}",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": { "raw": "{{baseUrl}}/autenticacao/perfil", "host": ["{{baseUrl}}"], "path": ["autenticacao", "perfil"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('codigo NAO_AUTENTICADO', () => pm.expect(pm.response.json().erro.codigo).to.equal('NAO_AUTENTICADO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "403 — Sem permissão (RECEPCIONISTA → POST /setores)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/setores",
+              "host": ["{{baseUrl}}"],
+              "path": ["setores"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Setor Proibido\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Tenta criar um setor com token de `RECEPCIONISTA`.\n\nSubstitua `{{token}}` por um token com papel `RECEPCIONISTA`.\n\n**Código esperado:** `SEM_PERMISSAO`"
+          },
+          "response": [
+            {
+              "name": "403 Sem Permissão",
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": false,\n  \"erro\": {\n    \"mensagem\": \"Sem permissão para realizar esta ação.\",\n    \"codigo\": \"SEM_PERMISSAO\"\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"nome\": \"Setor Proibido\"\n}" },
+                "url": { "raw": "{{baseUrl}}/setores", "host": ["{{baseUrl}}"], "path": ["setores"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                  "pm.test('codigo SEM_PERMISSAO', () => pm.expect(pm.response.json().erro.codigo).to.equal('SEM_PERMISSAO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "403 — Dia não permitido (fim de semana/feriado)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/visitantes",
+              "host": ["{{baseUrl}}"],
+              "path": ["visitantes"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomeCompleto\": \"Visitante Feriado\",\n  \"cpf\": \"529.982.247-25\",\n  \"dataNascimento\": \"1985-03-20\",\n  \"telefone\": \"11999990099\",\n  \"email\": \"feriado@email.com\",\n  \"setorDestinoNome\": \"Recursos Humanos\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Tenta registrar um visitante em dia não permitido (fim de semana ou feriado nacional).\n\n**Código esperado:** `DIA_NAO_PERMITIDO`"
+          },
+          "response": [
+            {
+              "name": "403 Dia Não Permitido",
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": false,\n  \"erro\": {\n    \"mensagem\": \"Cadastro não permitido em fins de semana ou feriados nacionais.\",\n    \"codigo\": \"DIA_NAO_PERMITIDO\"\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"nomeCompleto\": \"Visitante Feriado\"\n}" },
+                "url": { "raw": "{{baseUrl}}/visitantes", "host": ["{{baseUrl}}"], "path": ["visitantes"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                  "pm.test('codigo DIA_NAO_PERMITIDO', () => pm.expect(pm.response.json().erro.codigo).to.equal('DIA_NAO_PERMITIDO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 — CPF inválido (dígitos verificadores errados)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/visitantes",
+              "host": ["{{baseUrl}}"],
+              "path": ["visitantes"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomeCompleto\": \"Visitante CPF Invalido\",\n  \"cpf\": \"111.111.111-11\",\n  \"dataNascimento\": \"1990-01-01\",\n  \"telefone\": \"11999990099\",\n  \"email\": \"cpf@email.com\",\n  \"setorDestinoNome\": \"Recursos Humanos\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Tenta registrar um visitante com CPF de dígitos verificadores inválidos.\n\nO formato `000.000.000-00` passa a validação Zod, mas os dígitos são verificados pelo Value Object `Cpf` no domínio.\n\n**Código esperado:** `CPF_INVALIDO`"
+          },
+          "response": [
+            {
+              "name": "400 CPF Inválido",
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": false,\n  \"erro\": {\n    \"mensagem\": \"CPF inválido.\",\n    \"codigo\": \"CPF_INVALIDO\"\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"cpf\": \"111.111.111-11\"\n}" },
+                "url": { "raw": "{{baseUrl}}/visitantes", "host": ["{{baseUrl}}"], "path": ["visitantes"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('codigo CPF_INVALIDO', () => pm.expect(pm.response.json().erro.codigo).to.equal('CPF_INVALIDO'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 — Dados inválidos (Zod — campo obrigatório ausente)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/visitantes",
+              "host": ["{{baseUrl}}"],
+              "path": ["visitantes"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomeCompleto\": \"Visitante Incompleto\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Tenta registrar um visitante com payload incompleto (campos obrigatórios ausentes).\n\nA validação Zod rejeita antes de chegar nos casos de uso.\n\n**Código esperado:** `DADOS_INVALIDOS`"
+          },
+          "response": [
+            {
+              "name": "400 Dados Inválidos",
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"sucesso\": false,\n  \"erro\": {\n    \"mensagem\": \"Dados inválidos.\",\n    \"codigo\": \"DADOS_INVALIDOS\"\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"nomeCompleto\": \"Visitante Incompleto\"\n}" },
+                "url": { "raw": "{{baseUrl}}/visitantes", "host": ["{{baseUrl}}"], "path": ["visitantes"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('codigo DADOS_INVALIDOS', () => pm.expect(pm.response.json().erro.codigo).to.equal('DADOS_INVALIDOS'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "429 — Rate limit excedido (POST /login)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/autenticacao/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["autenticacao", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@bemvindo.com\",\n  \"senha\": \"tentativa-errada\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Simula estouro do rate limit em `/autenticacao/login`.\n\nO limite é de **10 requisições por 15 minutos** por IP.\n\nPara testar: execute este request 11+ vezes rapidamente.\n\n**Código esperado:** `LIMITE_REQUISICOES`"
+          },
+          "response": [
+            {
+              "name": "429 Muitas Requisições",
+              "status": "Too Many Requests",
+              "code": 429,
+              "_postman_previewlanguage": "json",
+              "header": [
+                { "key": "Content-Type",  "value": "application/json" },
+                { "key": "Retry-After",   "value": "900" }
+              ],
+              "body": "{\n  \"sucesso\": false,\n  \"erro\": {\n    \"mensagem\": \"Muitas requisições. Tente novamente em 15 minutes.\",\n    \"codigo\": \"LIMITE_REQUISICOES\"\n  }\n}",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@bemvindo.com\",\n  \"senha\": \"tentativa-errada\"\n}" },
+                "url": { "raw": "{{baseUrl}}/autenticacao/login", "host": ["{{baseUrl}}"], "path": ["autenticacao", "login"] }
+              }
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 401 ou 429', () => pm.expect([401, 429]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

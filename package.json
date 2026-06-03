@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "seed": "tsx --env-file=.env src/infra/bd/seed.ts",
+    "seed:limpar": "tsx --env-file=.env src/infra/bd/seed.ts --limpar"
   },
   "keywords": [],
   "author": "",

@@ -6,7 +6,7 @@ export const schemaCadastrarVisitante = z.object({
   dataNascimento: z.iso.date('Data de nascimento inválida.'),
   telefone: z.string().min(10, 'Telefone deve ter no mínimo 10 dígitos.'),
   email: z.email('E-mail inválido.'),
-  setorDestinoId: z.string().length(24, 'ID do setor inválido.'),
+  setorDestinoNome: z.string().min(2, 'Nome do setor deve ter no mínimo 2 caracteres.'),
   observacao: z.string().optional(),
 })
 

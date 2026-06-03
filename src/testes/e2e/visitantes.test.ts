@@ -10,6 +10,7 @@ import { ListarUsuarios } from '@/modulos/usuarios/aplicacao/casos-de-uso/listar
 import { AtualizarUsuario } from '@/modulos/usuarios/aplicacao/casos-de-uso/atualizar-usuario'
 import { ControladorUsuario } from '@/modulos/usuarios/apresentacao/controladores/controlador-usuario'
 import { rotasUsuario } from '@/modulos/usuarios/apresentacao/rotas/rotas-usuario'
+import { RepositorioSetorMongo } from '@/modulos/setores/infra/repositorios/repositorio-setor-mongo'
 import { RepositorioVisitanteMongo } from '@/modulos/visitantes/infra/repositorios/repositorio-visitante-mongo'
 import { ServicoDominioVisitante } from '@/modulos/visitantes/dominio/servicos/servico-dominio-visitante'
 import { CadastrarVisitante } from '@/modulos/visitantes/aplicacao/casos-de-uso/cadastrar-visitante'
@@ -55,9 +56,11 @@ beforeAll(async () => {
 
   const repositorioUsuario = new RepositorioUsuarioMongo(bd)
   const repositorioContador = new RepositorioContadorMongo(bd)
+  const repositorioSetor = new RepositorioSetorMongo(bd)
   const repositorioVisitante = new RepositorioVisitanteMongo(bd)
 
   await repositorioUsuario.criarIndices()
+  await repositorioSetor.criarIndices()
   await repositorioVisitante.criarIndices()
 
   await app.register(rotasUsuario, {
@@ -74,7 +77,7 @@ beforeAll(async () => {
   await app.register(rotasVisitante, {
     prefix: '/visitantes',
     controlador: new ControladorVisitante(
-      new CadastrarVisitante(repositorioVisitante, repositorioContador, repositorioUsuario, servicoDominio),
+      new CadastrarVisitante(repositorioVisitante, repositorioContador, repositorioUsuario, repositorioSetor, servicoDominio),
       new EditarVisitante(repositorioVisitante),
       new ListarVisitantesHoje(repositorioVisitante, servicoDominio),
       new BuscarHistoricoVisitante(repositorioVisitante),
@@ -117,7 +120,7 @@ const payloadValido = () => ({
   dataNascimento: '1990-06-15',
   telefone: '11999999999',
   email: 'joao@email.com',
-  setorDestinoId: setorId.toString(),
+  setorDestinoNome: 'TI Teste',
 })
 
 describe('POST /visitantes', () => {

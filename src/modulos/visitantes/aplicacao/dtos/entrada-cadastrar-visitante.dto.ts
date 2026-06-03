@@ -4,7 +4,7 @@ export interface EntradaCadastrarVisitanteDTO {
   readonly dataNascimento: string
   readonly telefone: string
   readonly email: string
-  readonly setorDestinoId: string
+  readonly setorDestinoNome: string
   readonly observacao?: string | undefined
   readonly requisitanteId: string
 }
