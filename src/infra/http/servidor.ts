@@ -19,6 +19,11 @@ import { BuscarPerfil } from '@/modulos/autenticacao/aplicacao/casos-de-uso/busc
 import { ControladorAutenticacao } from '@/modulos/autenticacao/apresentacao/controladores/controlador-autenticacao'
 import { rotasAutenticacao } from '@/modulos/autenticacao/apresentacao/rotas/rotas-autenticacao'
 import type { ServicoToken } from '@/modulos/autenticacao/dominio/servicos/servico-token'
+import { RepositorioSetorMongo } from '@/modulos/setores/infra/repositorios/repositorio-setor-mongo'
+import { CadastrarSetor } from '@/modulos/setores/aplicacao/casos-de-uso/cadastrar-setor'
+import { ListarSetores } from '@/modulos/setores/aplicacao/casos-de-uso/listar-setores'
+import { ControladorSetor } from '@/modulos/setores/apresentacao/controladores/controlador-setor'
+import { rotasSetor } from '@/modulos/setores/apresentacao/rotas/rotas-setor'
 
 const schemaEnv = z.object({
   PORTA: z.coerce.number().int().min(1).max(65535).default(3000),
@@ -49,8 +54,10 @@ async function iniciar(): Promise<void> {
   const repositorioUsuario = new RepositorioUsuarioMongo(bd)
   const repositorioContador = new RepositorioContadorMongo(bd)
   const repositorioToken = new RepositorioTokenRedis(redis)
+  const repositorioSetor = new RepositorioSetorMongo(bd)
 
   await repositorioUsuario.criarIndices()
+  await repositorioSetor.criarIndices()
 
   // ── Serviço de token (factory — evita dependência do Fastify no domínio) ──
   const serviçoToken: ServicoToken = {
@@ -83,6 +90,13 @@ async function iniciar(): Promise<void> {
     prefix: '/autenticacao',
     controlador: controladorAutenticacao,
   })
+
+  // ── Módulo: setores ───────────────────────────────────────────────────────
+  const controladorSetor = new ControladorSetor(
+    new CadastrarSetor(repositorioSetor),
+    new ListarSetores(repositorioSetor),
+  )
+  await app.register(rotasSetor, { prefix: '/setores', controlador: controladorSetor })
 
   const encerrar = async (sinal: string): Promise<void> => {
     app.log.info(`Sinal ${sinal} recebido. Encerrando...`)
