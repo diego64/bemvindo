@@ -24,6 +24,14 @@ import { CadastrarSetor } from '@/modulos/setores/aplicacao/casos-de-uso/cadastr
 import { ListarSetores } from '@/modulos/setores/aplicacao/casos-de-uso/listar-setores'
 import { ControladorSetor } from '@/modulos/setores/apresentacao/controladores/controlador-setor'
 import { rotasSetor } from '@/modulos/setores/apresentacao/rotas/rotas-setor'
+import { RepositorioVisitanteMongo } from '@/modulos/visitantes/infra/repositorios/repositorio-visitante-mongo'
+import { ServicoDominioVisitante } from '@/modulos/visitantes/dominio/servicos/servico-dominio-visitante'
+import { CadastrarVisitante } from '@/modulos/visitantes/aplicacao/casos-de-uso/cadastrar-visitante'
+import { EditarVisitante } from '@/modulos/visitantes/aplicacao/casos-de-uso/editar-visitante'
+import { ListarVisitantesHoje } from '@/modulos/visitantes/aplicacao/casos-de-uso/listar-visitantes-hoje'
+import { BuscarHistoricoVisitante } from '@/modulos/visitantes/aplicacao/casos-de-uso/buscar-historico-visitante'
+import { ControladorVisitante } from '@/modulos/visitantes/apresentacao/controladores/controlador-visitante'
+import { rotasVisitante } from '@/modulos/visitantes/apresentacao/rotas/rotas-visitante'
 
 const schemaEnv = z.object({
   PORTA: z.coerce.number().int().min(1).max(65535).default(3000),
@@ -55,9 +63,11 @@ async function iniciar(): Promise<void> {
   const repositorioContador = new RepositorioContadorMongo(bd)
   const repositorioToken = new RepositorioTokenRedis(redis)
   const repositorioSetor = new RepositorioSetorMongo(bd)
+  const repositorioVisitante = new RepositorioVisitanteMongo(bd)
 
   await repositorioUsuario.criarIndices()
   await repositorioSetor.criarIndices()
+  await repositorioVisitante.criarIndices()
 
   // ── Serviço de token (factory — evita dependência do Fastify no domínio) ──
   const serviçoToken: ServicoToken = {
@@ -97,6 +107,16 @@ async function iniciar(): Promise<void> {
     new ListarSetores(repositorioSetor),
   )
   await app.register(rotasSetor, { prefix: '/setores', controlador: controladorSetor })
+
+  // ── Módulo: visitantes ────────────────────────────────────────────────────
+  const servicoDominioVisitante = new ServicoDominioVisitante()
+  const controladorVisitante = new ControladorVisitante(
+    new CadastrarVisitante(repositorioVisitante, repositorioContador, repositorioUsuario, servicoDominioVisitante),
+    new EditarVisitante(repositorioVisitante),
+    new ListarVisitantesHoje(repositorioVisitante, servicoDominioVisitante),
+    new BuscarHistoricoVisitante(repositorioVisitante),
+  )
+  await app.register(rotasVisitante, { prefix: '/visitantes', controlador: controladorVisitante })
 
   const encerrar = async (sinal: string): Promise<void> => {
     app.log.info(`Sinal ${sinal} recebido. Encerrando...`)
