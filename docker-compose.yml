@@ -1,0 +1,85 @@
+services:
+  bv-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    container_name: bv-api
+    env_file: .env
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      bv-mongodb:
+        condition: service_healthy
+      bv-redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - bv-network
+
+  bv-mongodb:
+    image: mongo:8.0
+    container_name: bv-mongodb
+    env_file: .env
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USUARIO}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_SENHA}
+      MONGO_INITDB_DATABASE: bem-vindo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --username $$MONGO_USUARIO --password $$MONGO_SENHA --authenticationDatabase admin --eval 'db.adminCommand(\"ping\")' --quiet",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - bv-network
+
+  bv-redis:
+    image: redis:8-alpine
+    container_name: bv-redis
+    env_file: .env
+    volumes:
+      - redis-data:/data
+    # Gera o ACL config dinamicamente a partir das variáveis de ambiente
+    command:
+      - sh
+      - -c
+      - >
+        echo 'user default off' > /tmp/redis.conf &&
+        echo "user $$REDIS_USUARIO on >$$REDIS_SENHA ~* &* +@all" >> /tmp/redis.conf &&
+        exec redis-server /tmp/redis.conf
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli --user $$REDIS_USUARIO --pass $$REDIS_SENHA --no-auth-warning ping",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - bv-network
+
+volumes:
+  mongodb-data:
+  redis-data:
+
+networks:
+  bv-network:
+    driver: bridge
