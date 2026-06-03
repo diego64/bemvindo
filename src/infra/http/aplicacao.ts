@@ -18,19 +18,35 @@ import { PapelUsuario } from '@/compartilhado/tipos/papel-usuario'
 import '@/infra/http/tipos'
 
 export async function criarAplicacao(): Promise<FastifyInstance> {
-  const app = Fastify(
-    process.env.NODE_ENV === 'production'
-      ? { logger: { level: 'warn' } }
-      : {
-          logger: {
-            level: 'debug',
-            transport: {
-              target: 'pino-pretty',
-              options: { colorize: true, translateTime: 'HH:MM:ss Z' },
-            },
-          },
-        },
-  ) as unknown as FastifyInstance
+  const nivel = process.env.NODE_ENV === 'production' ? 'warn' : 'debug'
+  const usarPretty = process.env.LOG_FORMATO === 'pretty'
+
+  const app = Fastify({
+    logger: {
+      level: nivel,
+      ...(usarPretty
+        ? { transport: { target: 'pino-pretty', options: { colorize: true, translateTime: 'HH:MM:ss Z' } } }
+        : {}),
+    },
+    disableRequestLogging: true,
+  }) as unknown as FastifyInstance
+
+  app.addHook('onRequest', (request, _reply, done) => {
+    request.log.info({ req: { method: request.method, url: request.url } }, 'incoming request')
+    done()
+  })
+
+  app.addHook('onResponse', (request, reply, done) => {
+    request.log.info(
+      {
+        req: { method: request.method, url: request.url },
+        res: { statusCode: reply.statusCode },
+        responseTime: reply.elapsedTime,
+      },
+      'request completed',
+    )
+    done()
+  })
 
   app.setValidatorCompiler(validatorCompiler)
   app.setSerializerCompiler(serializerCompiler)
