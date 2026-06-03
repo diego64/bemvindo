@@ -58,7 +58,7 @@ async function iniciar(): Promise<void> {
   const redis = obterRedis()
   app.log.info('Redis conectado.')
 
-  // ── Repositórios compartilhados ───────────────────────────────────────────
+  // Repositórios compartilhados
   const repositorioUsuario = new RepositorioUsuarioMongo(bd)
   const repositorioContador = new RepositorioContadorMongo(bd)
   const repositorioToken = new RepositorioTokenRedis(redis)
@@ -69,7 +69,7 @@ async function iniciar(): Promise<void> {
   await repositorioSetor.criarIndices()
   await repositorioVisitante.criarIndices()
 
-  // ── Serviço de token (factory — evita dependência do Fastify no domínio) ──
+  // Serviço de token (factory — evita dependência do Fastify no domínio)
   const serviçoToken: ServicoToken = {
     gerarAccessToken: (payload) =>
       app.jwt.sign(payload, { expiresIn: env.JWT_EXPIRACAO_ACCESS }),
@@ -80,7 +80,7 @@ async function iniciar(): Promise<void> {
     },
   }
 
-  // ── Módulo: usuários ──────────────────────────────────────────────────────
+  // Módulo: usuários
   const controladorUsuario = new ControladorUsuario(
     new CadastrarUsuario(repositorioUsuario, repositorioContador),
     new ListarUsuarios(repositorioUsuario),
@@ -88,7 +88,7 @@ async function iniciar(): Promise<void> {
   )
   await app.register(rotasUsuario, { prefix: '/usuarios', controlador: controladorUsuario })
 
-  // ── Módulo: autenticação ──────────────────────────────────────────────────
+  // Módulo: autenticação
   const controladorAutenticacao = new ControladorAutenticacao(
     new RealizarLogin(repositorioUsuario, serviçoToken, repositorioToken),
     new RenovarToken(repositorioUsuario, serviçoToken, repositorioToken),
@@ -101,17 +101,17 @@ async function iniciar(): Promise<void> {
     controlador: controladorAutenticacao,
   })
 
-  // ── Módulo: setores ───────────────────────────────────────────────────────
+  // Módulo: setores
   const controladorSetor = new ControladorSetor(
     new CadastrarSetor(repositorioSetor),
     new ListarSetores(repositorioSetor),
   )
   await app.register(rotasSetor, { prefix: '/setores', controlador: controladorSetor })
 
-  // ── Módulo: visitantes ────────────────────────────────────────────────────
+  // Módulo: visitantes
   const servicoDominioVisitante = new ServicoDominioVisitante()
   const controladorVisitante = new ControladorVisitante(
-    new CadastrarVisitante(repositorioVisitante, repositorioContador, repositorioUsuario, servicoDominioVisitante),
+    new CadastrarVisitante(repositorioVisitante, repositorioContador, repositorioUsuario, repositorioSetor, servicoDominioVisitante),
     new EditarVisitante(repositorioVisitante),
     new ListarVisitantesHoje(repositorioVisitante, servicoDominioVisitante),
     new BuscarHistoricoVisitante(repositorioVisitante),
