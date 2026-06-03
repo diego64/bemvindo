@@ -1,8 +1,10 @@
 import { ObjectId } from 'mongodb'
 import { ErroVisitanteJaCadastradoHoje } from '@/compartilhado/erros/erro-visitante-ja-cadastrado-hoje'
 import { ErroVisitanteNaoEncontrado } from '@/compartilhado/erros/erro-visitante-nao-encontrado'
+import { ErroSetorNaoEncontrado } from '@/compartilhado/erros/erro-setor-nao-encontrado'
 import type { RepositorioContador } from '@/compartilhado/repositorios/repositorio-contador'
 import type { RepositorioUsuario } from '@/modulos/usuarios/dominio/repositorios/repositorio-usuario'
+import type { RepositorioSetor } from '@/modulos/setores/dominio/repositorios/repositorio-setor'
 import type { RepositorioVisitante } from '@/modulos/visitantes/dominio/repositorios/repositorio-visitante'
 import type { ServicoDominioVisitante } from '@/modulos/visitantes/dominio/servicos/servico-dominio-visitante'
 import { Visitante } from '@/modulos/visitantes/dominio/entidades/visitante'
@@ -15,6 +17,7 @@ export class CadastrarVisitante {
     private readonly repositorioVisitante: RepositorioVisitante,
     private readonly repositorioContador: RepositorioContador,
     private readonly repositorioUsuario: RepositorioUsuario,
+    private readonly repositorioSetor: RepositorioSetor,
     private readonly servicoDominio: ServicoDominioVisitante,
   ) {}
 
@@ -25,6 +28,9 @@ export class CadastrarVisitante {
 
     const recepcionista = await this.repositorioUsuario.buscarPorId(new ObjectId(dados.requisitanteId))
     if (!recepcionista) throw new ErroVisitanteNaoEncontrado()
+
+    const setor = await this.repositorioSetor.buscarPorNome(dados.setorDestinoNome.trim())
+    if (!setor) throw new ErroSetorNaoEncontrado()
 
     const cpfNormalizado = dados.cpf.replace(/\D/g, '')
     const { inicioDia, fimDia } = this.servicoDominio.obterIntervaloHoje(agora)
@@ -45,7 +51,7 @@ export class CadastrarVisitante {
       dataNascimento: new Date(dados.dataNascimento),
       telefone: dados.telefone,
       email: dados.email,
-      setorDestinoId: new ObjectId(dados.setorDestinoId),
+      setorDestinoId: setor.id,
       observacao: dados.observacao,
       recepcionistaId: requisitanteId,
       recepcionistaNome: `${recepcionista.nome} ${recepcionista.sobrenome}`,
