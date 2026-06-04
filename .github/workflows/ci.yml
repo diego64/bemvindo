@@ -8,6 +8,9 @@ on:
 
 permissions: {}
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   # ─── Qualidade estática ────────────────────────────────────────────────────
   qualidade:
@@ -176,7 +179,7 @@ jobs:
         run: pnpm test:coverage
 
       - name: Publicar cobertura
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: ./coverage/lcov.info
           fail_ci_if_error: false
