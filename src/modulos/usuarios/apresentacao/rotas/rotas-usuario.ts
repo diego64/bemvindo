@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { ZodTypeProvider } from 'fastify-type-provider-zod'
+import { z } from 'zod'
 import type { ControladorUsuario } from '@/modulos/usuarios/apresentacao/controladores/controlador-usuario'
 import {
   schemaCadastrarUsuario,
@@ -41,11 +42,13 @@ export function rotasUsuario(
   })
 
   rotas.patch('/:id', {
-    schema: { body: schemaAtualizarUsuario },
+    schema: {
+      params: z.object({ id: z.string().length(24, 'ID deve ter 24 caracteres.') }),
+      body: schemaAtualizarUsuario,
+    },
     preHandler: [autenticar(app), autorizarAdmin(app)],
     handler: async (req, reply) => {
-      const { id } = req.params as { id: string }
-      const dados = await controlador.atualizar(id, req.body, req.user.usuarioId)
+      const dados = await controlador.atualizar(req.params.id, req.body, req.user.usuarioId)
       return reply.status(200).send({ sucesso: true, dados })
     },
   })

@@ -1,4 +1,4 @@
-import { scrypt, randomBytes } from 'crypto'
+import { scrypt, randomBytes, timingSafeEqual } from 'crypto'
 import { promisify } from 'util'
 
 const scryptAsync = promisify(scrypt)
@@ -13,5 +13,7 @@ export async function verificarSenha(senha: string, hash: string): Promise<boole
   const [sal, hashArmazenado] = hash.split(':')
   if (!sal || !hashArmazenado) return false
   const derivado = (await scryptAsync(senha, sal, 64)) as Buffer
-  return derivado.toString('hex') === hashArmazenado
+  const hashArmazenadoBuffer = Buffer.from(hashArmazenado, 'hex')
+  if (derivado.length !== hashArmazenadoBuffer.length) return false
+  return timingSafeEqual(derivado, hashArmazenadoBuffer)
 }
