@@ -23,6 +23,18 @@ describe('Cpf', () => {
       const cpf = new Cpf('111.444.777-35')
       expect(cpf.valor).toBe('11144477735')
     })
+
+    it('deve aceitar CPF onde primeiro resto de verificação é 10 (mapeado para dígito 0)', () => {
+      // CPF 010.000.007-02 — resto1 = 10, resulta em dígito verificador 0
+      const cpf = new Cpf('01000000702')
+      expect(cpf.valor).toBe('01000000702')
+    })
+
+    it('deve aceitar CPF onde segundo resto de verificação é 10 (mapeado para dígito 0)', () => {
+      // CPF 010.000.002-90 — resto2 = 10, resulta em segundo dígito verificador 0
+      const cpf = new Cpf('01000000290')
+      expect(cpf.valor).toBe('01000000290')
+    })
   })
 
   describe('construtor — CPFs inválidos', () => {
