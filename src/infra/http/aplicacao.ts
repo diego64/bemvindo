@@ -31,15 +31,19 @@ export async function criarAplicacao(): Promise<FastifyInstance> {
     disableRequestLogging: true,
   }) as unknown as FastifyInstance
 
+  function sanitizarUrl(url: string): string {
+    return url.replace(/([?&]cpf=)[^&]*/gi, '$1[OMITIDO]')
+  }
+
   app.addHook('onRequest', (request, _reply, done) => {
-    request.log.info({ req: { method: request.method, url: request.url } }, 'incoming request')
+    request.log.info({ req: { method: request.method, url: sanitizarUrl(request.url) } }, 'incoming request')
     done()
   })
 
   app.addHook('onResponse', (request, reply, done) => {
     request.log.info(
       {
-        req: { method: request.method, url: request.url },
+        req: { method: request.method, url: sanitizarUrl(request.url) },
         res: { statusCode: reply.statusCode },
         responseTime: reply.elapsedTime,
       },
@@ -70,8 +74,12 @@ export async function criarAplicacao(): Promise<FastifyInstance> {
   })
 
   await app.register(cookie)
+  const jwtSecreto = process.env.JWT_SECRETO
+  if (!jwtSecreto || jwtSecreto.length < 32) {
+    throw new Error('JWT_SECRETO não definido ou com menos de 32 caracteres.')
+  }
   await app.register(jwt, {
-    secret: process.env.JWT_SECRETO ?? '',
+    secret: jwtSecreto,
     sign: { expiresIn: process.env.JWT_EXPIRACAO_ACCESS ?? '1h' },
   })
 
@@ -148,7 +156,7 @@ export async function criarAplicacao(): Promise<FastifyInstance> {
 
   app.get('/saude', () => ({
     sucesso: true,
-    dados: { status: 'ok', ambiente: process.env.NODE_ENV },
+    dados: { status: 'ok' },
   }))
 
   return app

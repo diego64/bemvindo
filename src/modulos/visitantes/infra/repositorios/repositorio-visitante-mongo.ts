@@ -26,6 +26,10 @@ interface DocumentoVisitante {
   atualizadoPor: ObjectId
 }
 
+function escaparRegex(texto: string): string {
+  return texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 export class RepositorioVisitanteMongo implements RepositorioVisitante {
   private readonly colecao: Collection<DocumentoVisitante>
 
@@ -97,7 +101,7 @@ export class RepositorioVisitanteMongo implements RepositorioVisitante {
     }
     if (filtros.setorDestinoId) query.setorDestinoId = filtros.setorDestinoId
     if (filtros.nomeCompleto) {
-      query.nomeCompleto = { $regex: filtros.nomeCompleto, $options: 'i' }
+      query.nomeCompleto = { $regex: escaparRegex(filtros.nomeCompleto), $options: 'i' }
     }
 
     const skip = (filtros.pagina - 1) * filtros.itensPorPagina
@@ -113,7 +117,7 @@ export class RepositorioVisitanteMongo implements RepositorioVisitante {
     const query: Filter<DocumentoVisitante> = {}
     if (filtros.cpf) query.cpf = filtros.cpf
     if (filtros.nomeCompleto) {
-      query.nomeCompleto = { $regex: filtros.nomeCompleto, $options: 'i' }
+      query.nomeCompleto = { $regex: escaparRegex(filtros.nomeCompleto), $options: 'i' }
     }
 
     const skip = (filtros.pagina - 1) * filtros.itensPorPagina
