@@ -126,4 +126,73 @@ describe('EditarVisitante', () => {
 
     expect(atualizarFn).not.toHaveBeenCalled()
   })
+
+  it('deve converter dataNascimento string para Date quando informada — branch ternário true', async () => {
+    const visitante = criarVisitanteMock()
+    const repositorio = criarRepositorioMock(visitante)
+    const casoDeUso = new EditarVisitante(repositorio)
+
+    const resultado = await casoDeUso.executar({
+      id: visitante.id.toString(),
+      dataNascimento: '1995-08-20',
+      papel: PapelUsuario.ADMINISTRADOR,
+      requisitanteId: requisitanteId.toString(),
+    })
+
+    expect(resultado.dataNascimento).toBeTruthy()
+  })
+
+  it('deve omitir dataNascimento quando não informada — branch ternário false (undefined)', async () => {
+    const visitante = criarVisitanteMock()
+    const atualizarSpy = vi.fn().mockResolvedValue(undefined)
+    const repositorio: RepositorioVisitante = {
+      criar: vi.fn(), buscarPorId: vi.fn().mockResolvedValue(visitante), buscarPorCpfEData: vi.fn(),
+      atualizar: atualizarSpy, listarHoje: vi.fn(), buscarHistorico: vi.fn(),
+    }
+    const casoDeUso = new EditarVisitante(repositorio)
+
+    await casoDeUso.executar({
+      id: visitante.id.toString(),
+      nomeCompleto: 'Sem data',
+      papel: PapelUsuario.ADMINISTRADOR,
+      requisitanteId: requisitanteId.toString(),
+    })
+
+    expect(atualizarSpy).toHaveBeenCalledOnce()
+  })
+
+  it('deve converter setorDestinoId string para ObjectId quando informado — branch ternário true', async () => {
+    const visitante = criarVisitanteMock()
+    const repositorio = criarRepositorioMock(visitante)
+    const casoDeUso = new EditarVisitante(repositorio)
+    const novoSetorId = new ObjectId().toString()
+
+    const resultado = await casoDeUso.executar({
+      id: visitante.id.toString(),
+      setorDestinoId: novoSetorId,
+      papel: PapelUsuario.ADMINISTRADOR,
+      requisitanteId: requisitanteId.toString(),
+    })
+
+    expect(resultado.setorDestinoId).toBe(novoSetorId)
+  })
+
+  it('deve omitir setorDestinoId quando não informado — branch ternário false (undefined)', async () => {
+    const visitante = criarVisitanteMock()
+    const atualizarSpy = vi.fn().mockResolvedValue(undefined)
+    const repositorio: RepositorioVisitante = {
+      criar: vi.fn(), buscarPorId: vi.fn().mockResolvedValue(visitante), buscarPorCpfEData: vi.fn(),
+      atualizar: atualizarSpy, listarHoje: vi.fn(), buscarHistorico: vi.fn(),
+    }
+    const casoDeUso = new EditarVisitante(repositorio)
+
+    await casoDeUso.executar({
+      id: visitante.id.toString(),
+      nomeCompleto: 'Sem setor',
+      papel: PapelUsuario.ADMINISTRADOR,
+      requisitanteId: requisitanteId.toString(),
+    })
+
+    expect(atualizarSpy).toHaveBeenCalledOnce()
+  })
 })

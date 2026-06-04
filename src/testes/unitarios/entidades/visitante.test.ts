@@ -125,5 +125,35 @@ describe('Visitante', () => {
       visitante.atualizar({ observacao: null }, PapelUsuario.ADMINISTRADOR, new ObjectId())
       expect(visitante.observacao).toBeUndefined()
     })
+
+    it('deve atualizar dataNascimento quando informada', () => {
+      const visitante = new Visitante(dadosValidos())
+      const novaData = new Date('1995-08-20')
+      visitante.atualizar({ dataNascimento: novaData }, PapelUsuario.ADMINISTRADOR, new ObjectId())
+      expect(visitante.dataNascimento).toEqual(novaData)
+    })
+
+    it('deve atualizar setorDestinoId quando informado', () => {
+      const visitante = new Visitante(dadosValidos())
+      const novoSetor = new ObjectId()
+      visitante.atualizar({ setorDestinoId: novoSetor }, PapelUsuario.ADMINISTRADOR, new ObjectId())
+      expect(visitante.setorDestinoId).toEqual(novoSetor)
+    })
+
+    it('não deve alterar dataNascimento quando não informada (undefined)', () => {
+      const dados = dadosValidos()
+      const dataOriginal = dados.dataNascimento
+      const visitante = new Visitante(dados)
+      visitante.atualizar({ nomeCompleto: 'Carlos' }, PapelUsuario.ADMINISTRADOR, new ObjectId())
+      expect(visitante.dataNascimento).toEqual(dataOriginal)
+    })
+
+    it('não deve alterar setorDestinoId quando não informado (undefined)', () => {
+      const dados = dadosValidos()
+      const setorOriginal = dados.setorDestinoId
+      const visitante = new Visitante(dados)
+      visitante.atualizar({ nomeCompleto: 'Carlos' }, PapelUsuario.ADMINISTRADOR, new ObjectId())
+      expect(visitante.setorDestinoId).toEqual(setorOriginal)
+    })
   })
 })

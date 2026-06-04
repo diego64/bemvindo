@@ -278,4 +278,14 @@ describe('POST /autenticacao/refresh-token → /logout', () => {
 
     expect(refresh.statusCode).toBe(401)
   })
+
+  it('deve retornar 200 ao fazer logout sem cookie — branch false (cookieRefreshToken ausente)', async () => {
+    const resposta = await app.inject({
+      method: 'POST',
+      url: '/autenticacao/logout',
+    })
+
+    expect(resposta.statusCode).toBe(200)
+    expect(resposta.json<{ sucesso: boolean }>().sucesso).toBe(true)
+  })
 })

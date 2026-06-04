@@ -51,6 +51,11 @@ describe('CodigoVisitante', () => {
       const resultado = CodigoVisitante.formatar(9_999_999 + 5)
       expect(resultado).toMatch(/^VIST\d{7}$/)
     })
+
+    it('deve reiniciar em VIST0000001 para múltiplo exato de 9999999 — branch || 1', () => {
+      // 9_999_999 * 2 = 19_999_998 → 19_999_998 % 9_999_999 === 0 → usa || 1
+      expect(CodigoVisitante.formatar(9_999_999 * 2)).toBe('VIST0000001')
+    })
   })
 
   describe('validar()', () => {
