@@ -1,17 +1,5 @@
 name: CI
 
-# FASE: Desenvolvimento local
-#
-# Etapas ativas agora:
-#   ✅ lint        — ESLint 10 sobre src/
-#   ✅ typecheck   — TypeScript 6 strict sem emissão
-#   ✅ testes      — Vitest (passará vazio até os primeiros testes serem criados)
-#
-# Etapas pendentes (comentadas abaixo):
-#   ⏳ testes-integracao — precisa de MongoDB + Redis via Docker services
-#   ⏳ testes-e2e        — precisa do servidor Fastify em execução
-#   ⏳ cobertura         — habilitar após cobertura mínima atingida (80%)
-
 on:
   push:
     branches: [main]
@@ -21,7 +9,7 @@ on:
 permissions: {}
 
 jobs:
-  # Lint e Typecheck
+  # ─── Qualidade estática ────────────────────────────────────────────────────
   qualidade:
     name: Lint e Typecheck
     runs-on: ubuntu-latest
@@ -47,8 +35,8 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-  # Testes unitários
-  testes:
+  # ─── Testes unitários (sem serviços externos) ─────────────────────────────
+  testes-unitarios:
     name: Testes Unitários
     runs-on: ubuntu-latest
     needs: qualidade
@@ -69,132 +57,92 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Testes unitários
-        run: pnpm test
+        run: pnpm exec vitest run src/testes/unitarios
 
-  # Testes de integração
-  # ⏳ PENDENTE — habilitar quando os primeiros repositórios MongoDB/Redis
-  #    estiverem implementados em src/modulos/*/infra/repositorios/
-  #
-  # testes-integracao:
-  #   name: Testes de Integração
-  #   runs-on: ubuntu-latest
-  #   needs: testes
-  #
-  #   services:
-  #     mongodb:
-  #       image: mongo:8.0
-  #       env:
-  #         MONGO_INITDB_ROOT_USERNAME: usuario
-  #         MONGO_INITDB_ROOT_PASSWORD: senha
-  #       ports:
-  #         - 27017:27017
-  #       options: >-
-  #         --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
-  #         --health-interval 10s
-  #         --health-timeout 5s
-  #         --health-retries 5
-  #
-  #     redis:
-  #       image: redis:8
-  #       options: >-
-  #         --health-cmd "redis-cli ping"
-  #         --health-interval 10s
-  #         --health-timeout 5s
-  #         --health-retries 5
-  #       ports:
-  #         - 6379:6379
-  #
-  #   env:
-  #     MONGO_URI: mongodb://usuario:senha@localhost:27017/bem-vindo-test
-  #     REDIS_URL: redis://localhost:6379
-  #     NODE_ENV: test
-  #
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: pnpm/action-setup@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 22
-  #         cache: pnpm
-  #     - name: Instalar dependências
-  #       run: pnpm install --frozen-lockfile
-  #     - name: Testes de integração
-  #       run: pnpm exec vitest run src/testes/integracao
+  # ─── Cobertura (unit only) ─────────────────────────────────────────────────
+  cobertura:
+    name: Cobertura de Testes
+    runs-on: ubuntu-latest
+    needs: testes-unitarios
+    permissions:
+      contents: read
 
-  # Testes E2E
-  # ⏳ PENDENTE — habilitar quando as rotas Fastify estiverem implementadas
-  #    e os testes em src/testes/e2e/ criados.
-  #    Requer os mesmos services de MongoDB e Redis acima.
-  #
-  # testes-e2e:
-  #   name: Testes E2E
-  #   runs-on: ubuntu-latest
-  #   needs: testes-integracao
-  #
-  #   services:
-  #     mongodb:
-  #       image: mongo:8.0
-  #       env:
-  #         MONGO_INITDB_ROOT_USERNAME: usuario
-  #         MONGO_INITDB_ROOT_PASSWORD: senha
-  #       ports:
-  #         - 27017:27017
-  #       options: >-
-  #         --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
-  #         --health-interval 10s
-  #         --health-timeout 5s
-  #         --health-retries 5
-  #
-  #     redis:
-  #       image: redis:8
-  #       options: >-
-  #         --health-cmd "redis-cli ping"
-  #         --health-interval 10s
-  #         --health-timeout 5s
-  #         --health-retries 5
-  #       ports:
-  #         - 6379:6379
-  #
-  #   env:
-  #     MONGO_URI: mongodb://usuario:senha@localhost:27017/bem-vindo-test
-  #     REDIS_URL: redis://localhost:6379
-  #     NODE_ENV: test
-  #     JWT_SECRETO: secreto-de-teste-minimo-32-caracteres-aqui
-  #
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: pnpm/action-setup@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 22
-  #         cache: pnpm
-  #     - name: Instalar dependências
-  #       run: pnpm install --frozen-lockfile
-  #     - name: Testes E2E
-  #       run: pnpm exec vitest run src/testes/e2e
+    steps:
+      - uses: actions/checkout@v4
 
-  # Cobertura
-  # ⏳ PENDENTE — habilitar após os testes unitários atingirem cobertura
-  #    mínima de 80% (configurado em vitest.config.ts).
-  #
-  # cobertura:
-  #   name: Cobertura de Testes
-  #   runs-on: ubuntu-latest
-  #   needs: testes
-  #
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: pnpm/action-setup@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 22
-  #         cache: pnpm
-  #     - name: Instalar dependências
-  #       run: pnpm install --frozen-lockfile
-  #     - name: Gerar relatório de cobertura
-  #       run: pnpm test:coverage
-  #     - name: Publicar cobertura
-  #       uses: codecov/codecov-action@v4
-  #       with:
-  #         files: ./coverage/lcov.info
-  #         fail_ci_if_error: true
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Gerar relatório de cobertura
+        run: pnpm exec vitest run --coverage src/testes/unitarios
+
+      - name: Publicar cobertura
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+
+  # ─── Testes E2E (MongoDB + Redis) ─────────────────────────────────────────
+  testes-e2e:
+    name: Testes E2E
+    runs-on: ubuntu-latest
+    needs: testes-unitarios
+    permissions:
+      contents: read
+
+    services:
+      mongodb:
+        image: mongo:8.0
+        env:
+          MONGO_INITDB_ROOT_USERNAME: administrador
+          MONGO_INITDB_ROOT_PASSWORD: 1qaz2sx12
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:8
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    env:
+      MONGO_URI: mongodb://administrador:1qaz2sx12@localhost:27017/bem-vindo-testes?authSource=admin
+      REDIS_URL: redis://localhost:6379
+      NODE_ENV: test
+      JWT_SECRETO: jwt-secreto-de-teste-com-pelo-menos-32-chars
+      JWT_EXPIRACAO_ACCESS: 1h
+      JWT_EXPIRACAO_REFRESH: 7d
+      PORTA: 3000
+      TZ: America/Sao_Paulo
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      - name: Testes E2E
+        run: pnpm exec vitest run src/testes/e2e

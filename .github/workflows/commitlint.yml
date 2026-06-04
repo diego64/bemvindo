@@ -31,6 +31,6 @@ jobs:
       - name: Validar commits do PR
         uses: wagoid/commitlint-github-action@v6
         with:
-          configFile: commitlint.config.js
+          configFile: commitlint.config.cjs
           failOnWarnings: false
           helpURL: https://github.com/${{ github.repository }}/blob/main/.claude/rules/core/03-convencoes-git.md
