@@ -1,0 +1,319 @@
+{
+  "title": "MongoDB — Monitoramento",
+  "uid": "mongodb-bv",
+  "description": "Conexões, operações, memória, rede e logs do MongoDB",
+  "tags": ["mongodb", "database", "bem-vindo"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "time": { "from": "now-1h", "to": "now" },
+  "editable": true,
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Status Geral",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Status MongoDB",
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-bv" },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "Online", "color": "green" }, "0": { "text": "Offline", "color": "red" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "targets": [{ "datasource": { "uid": "prometheus-bv" }, "expr": "mongodb_up", "instant": true, "legendFormat": "" }]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Conexões Ativas",
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-bv" },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 50 }, { "color": "red", "value": 200 }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "targets": [{ "datasource": { "uid": "prometheus-bv" }, "expr": "mongodb_ss_connections{state=\"current\"}", "instant": true, "legendFormat": "" }]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Conexões Disponíveis",
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-bv" },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 10 }, { "color": "green", "value": 50 }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "targets": [{ "datasource": { "uid": "prometheus-bv" }, "expr": "mongodb_ss_connections{state=\"available\"}", "instant": true, "legendFormat": "" }]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Memória Residente",
+      "gridPos": { "h": 5, "w": 4, "x": 12, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-bv" },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 512 }, { "color": "red", "value": 1024 }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "targets": [{ "datasource": { "uid": "prometheus-bv" }, "expr": "mongodb_ss_mem_resident", "instant": true, "legendFormat": "" }]
+    },
+    {
+      "id": 6,
+      "type": "gauge",
+      "title": "Fila de Operações Bloqueadas",
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-bv" },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "max": 100,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 10 }, { "color": "red", "value": 50 }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "targets": [{ "datasource": { "uid": "prometheus-bv" }, "expr": "mongodb_ss_globalLock_currentQueue_total", "instant": true, "legendFormat": "" }]
+    },
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Operações",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Taxa de Operações por Tipo (ops/s)",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-bv" },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "spanNulls": false }
+        }
+      },
+      "targets": [
+        { "datasource": { "uid": "prometheus-bv" }, "expr": "rate(mongodb_ss_opcounters_total{type=\"insert\"}[2m])", "legendFormat": "Insert" },
+        { "datasource": { "uid": "prometheus-bv" }, "expr": "rate(mongodb_ss_opcounters_total{type=\"update\"}[2m])", "legendFormat": "Update" },
+        { "datasource": { "uid": "prometheus-bv" }, "expr": "rate(mongodb_ss_opcounters_total{type=\"delete\"}[2m])", "legendFormat": "Delete" },
+        { "datasource": { "uid": "prometheus-bv" }, "expr": "rate(mongodb_ss_opcounters_total{type=\"query\"}[2m])", "legendFormat": "Query" },
+        { "datasource": { "uid": "prometheus-bv" }, "expr": "rate(mongodb_ss_opcounters_total{type=\"command\"}[2m])", "legendFormat": "Command" },
+        { "datasource": { "uid": "prometheus-bv" }, "expr": "rate(mongodb_ss_opcounters_total{type=\"getmore\"}[2m])", "legendFormat": "Getmore" }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "row",
+      "title": "Memória e Rede",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Memória (MB)",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 17 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-bv" },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes",
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "spanNulls": false }
+        }
+      },
+      "targets": [
+        { "datasource": { "uid": "prometheus-bv" }, "expr": "mongodb_ss_mem_resident", "legendFormat": "Residente" },
+        { "datasource": { "uid": "prometheus-bv" }, "expr": "mongodb_ss_mem_virtual", "legendFormat": "Virtual" }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Tráfego de Rede (bytes/s)",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 17 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-bv" },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "spanNulls": false }
+        }
+      },
+      "targets": [
+        { "datasource": { "uid": "prometheus-bv" }, "expr": "rate(mongodb_ss_network_bytes_in_total[2m])", "legendFormat": "Entrada" },
+        { "datasource": { "uid": "prometheus-bv" }, "expr": "rate(mongodb_ss_network_bytes_out_total[2m])", "legendFormat": "Saída" }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "row",
+      "title": "Documentos e Cursores",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Documentos por Operação (docs/s)",
+      "gridPos": { "h": 9, "w": 16, "x": 0, "y": 27 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-bv" },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max", "lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "spanNulls": false }
+        }
+      },
+      "targets": [
+        { "datasource": { "uid": "prometheus-bv" }, "expr": "rate(mongodb_ss_metrics_document_total{state=\"inserted\"}[2m])", "legendFormat": "Inseridos" },
+        { "datasource": { "uid": "prometheus-bv" }, "expr": "rate(mongodb_ss_metrics_document_total{state=\"returned\"}[2m])", "legendFormat": "Retornados" },
+        { "datasource": { "uid": "prometheus-bv" }, "expr": "rate(mongodb_ss_metrics_document_total{state=\"updated\"}[2m])", "legendFormat": "Atualizados" },
+        { "datasource": { "uid": "prometheus-bv" }, "expr": "rate(mongodb_ss_metrics_document_total{state=\"deleted\"}[2m])", "legendFormat": "Deletados" }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "Cursores Abertos",
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 27 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-bv" },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 100 }, { "color": "red", "value": 500 }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "targets": [{ "datasource": { "uid": "prometheus-bv" }, "expr": "mongodb_ss_metrics_cursor_open{state=\"total\"}", "instant": true, "legendFormat": "" }]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Conexões ao Longo do Tempo",
+      "gridPos": { "h": 9, "w": 8, "x": 16, "y": 31 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-bv" },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "spanNulls": false }
+        }
+      },
+      "targets": [
+        { "datasource": { "uid": "prometheus-bv" }, "expr": "mongodb_ss_connections{state=\"current\"}", "legendFormat": "Ativas" },
+        { "datasource": { "uid": "prometheus-bv" }, "expr": "mongodb_ss_connections{state=\"available\"}", "legendFormat": "Disponíveis" }
+      ]
+    },
+    {
+      "id": 16,
+      "type": "row",
+      "title": "Logs do MongoDB",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 }
+    },
+    {
+      "id": 17,
+      "type": "logs",
+      "title": "Logs do Contêiner bv-mongodb",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 37 },
+      "datasource": { "type": "loki", "uid": "loki-bv" },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": { "uid": "loki-bv" },
+          "expr": "{container=\"bv-mongodb\"}",
+          "legendFormat": "",
+          "queryType": "range"
+        }
+      ]
+    }
+  ]
+}

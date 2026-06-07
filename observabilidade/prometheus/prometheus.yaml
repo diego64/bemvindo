@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: mongodb
+    static_configs:
+      - targets: ['bv-mongodb-exporter:9216']
+        labels:
+          service: mongodb
+          container: bv-mongodb
