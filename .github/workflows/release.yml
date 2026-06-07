@@ -1,16 +1,9 @@
-name: CI
+name: Release
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-# Cancela runs anteriores do mesmo PR ou branch para economizar minutos de CI.
-# Em push para main, cada run é independente (group usa o SHA para não cancelar).
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    tags:
+      - 'v*.*.*'
 
 permissions: {}
 
@@ -70,7 +63,7 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-  # ─── Testes unitários (sem serviços externos) ─────────────────────────────
+  # ─── Testes Unitários ─────────────────────────────────────────────────────
   testes-unitarios:
     name: Testes Unitários
     runs-on: ubuntu-latest
@@ -154,7 +147,7 @@ jobs:
       - name: Testes E2E
         run: pnpm exec vitest run src/testes/e2e
 
-  # ─── Cobertura + Quality Gate (suite completa: unitários + E2E) ───────────
+  # ─── Cobertura + Quality Gate ─────────────────────────────────────────────
   cobertura:
     name: Cobertura e Quality Gate
     runs-on: ubuntu-latest
@@ -210,21 +203,89 @@ jobs:
       - name: Instalar dependências
         run: pnpm install --frozen-lockfile
 
-      # O próprio vitest --coverage falha o processo se os thresholds configurados
-      # em vitest.config.ts não forem atingidos — este é o quality gate explícito.
       - name: Gerar relatório de cobertura (quality gate)
         run: pnpm test:coverage
-
-      - name: Publicar cobertura no Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage/lcov.info
-          fail_ci_if_error: false
 
       - name: Upload do relatório de cobertura como artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: relatorio-cobertura-${{ github.run_number }}
+          name: relatorio-cobertura-${{ github.ref_name }}
           path: coverage/
-          retention-days: 7
+          retention-days: 30
+
+  # ─── Scan de segurança ────────────────────────────────────────────────────
+  security-scan:
+    name: Scan de Segurança
+    runs-on: ubuntu-latest
+    needs: cobertura
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+
+      # Falha o pipeline em vulnerabilidades de severidade high ou critical.
+      - name: Auditoria de dependências
+        run: pnpm audit --audit-level=high
+
+  # ─── Artifact de produção ─────────────────────────────────────────────────
+  artifact-build:
+    name: Artifact de Produção
+    runs-on: ubuntu-latest
+    needs: security-scan
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependências (somente produção)
+        run: pnpm install --frozen-lockfile --prod
+
+      - name: Compilar projeto
+        run: pnpm build
+
+      - name: Upload do artifact de produção
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ github.ref_name }}
+          path: dist/
+          retention-days: 30
+
+  # ─── Aprovação manual antes de produção ───────────────────────────────────
+  aprovacao-producao:
+    name: Aprovacao para Producao
+    runs-on: ubuntu-latest
+    needs: artifact-build
+    timeout-minutes: 10
+    environment: producao
+    permissions:
+      contents: read
+
+    steps:
+      - name: Release ${{ github.ref_name }} aprovado para producao
+        run: |
+          echo "Tag: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Aprovado por: ${{ github.actor }}"
+          echo "Release liberado para producao."
