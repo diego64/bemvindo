@@ -113,6 +113,48 @@ services:
     networks:
       - bv-network
 
+  bv-mongodb-exporter:
+    image: percona/mongodb_exporter:0.44.0
+    container_name: bv-mongodb-exporter
+    environment:
+      MONGODB_URI: mongodb://${MONGO_USUARIO}:${MONGO_SENHA}@bv-mongodb:27017/?authSource=admin
+    command:
+      - --collect-all
+      - --web.listen-address=:9216
+    ports:
+      - "9216:9216"
+    depends_on:
+      bv-mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - bv-network
+
+  bv-prometheus:
+    image: prom/prometheus:v3.4.0
+    container_name: bv-prometheus
+    volumes:
+      - ./observabilidade/prometheus/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    ports:
+      - "9090:9090"
+    depends_on:
+      - bv-mongodb-exporter
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:9090/-/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - bv-network
+
   bv-grafana:
     image: grafana/grafana:13.0.1
     container_name: bv-grafana
@@ -147,6 +189,7 @@ volumes:
   redis-data:
   loki-data:
   grafana-data:
+  prometheus-data:
 
 networks:
   bv-network:
