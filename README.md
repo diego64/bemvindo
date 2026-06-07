@@ -1,17 +1,6 @@
 <div align="center">
   <h1>Bem-vindo</h1>
   <p>Sistema de recepção corporativa para controle de entrada de visitantes</p>
-
-  <p>
-    <a href="https://github.com/diego64/bemvindo/actions/workflows/ci.yml">
-      <img src="https://github.com/diego64/bemvindo/actions/workflows/ci.yml/badge.svg" alt="CI" />
-    </a>
-    <a href="https://github.com/diego64/bemvindo/releases">
-      <img src="https://img.shields.io/github/v/release/diego64/bemvindo" alt="Release" />
-    </a>
-    <img src="https://img.shields.io/badge/node-%3E%3D22-brightgreen" alt="Node.js" />
-    <img src="https://img.shields.io/badge/license-UNLICENSED-red" alt="License" />
-  </p>
 </div>
 
 ---
