@@ -240,29 +240,16 @@ jobs:
       - name: Auditoria de dependências
         run: pnpm audit --audit-level=high
 
-  # ─── Aprovação manual — gate antes de qualquer push para produção ─────────
-  aprovacao-producao:
-    name: Aprovacao para Producao
+  # ─── Aprovação manual + Push Docker Hub (mesmo job = mesmo environment) ────
+  # O environment: producao serve dois propósitos:
+  #   1. Gate de aprovação manual (Required reviewers no GitHub)
+  #   2. Acesso aos secrets DOCKERHUB_USERNAME e DOCKER_TOKEN do environment
+  docker-push:
+    name: Aprovacao e Push Docker Hub
     runs-on: ubuntu-latest
     needs: security-scan
-    timeout-minutes: 10
-    environment: producao
-    permissions:
-      contents: read
-
-    steps:
-      - name: Release ${{ github.ref_name }} aprovado para producao
-        run: |
-          echo "Tag: ${{ github.ref_name }}"
-          echo "Commit: ${{ github.sha }}"
-          echo "Aprovado por: ${{ github.actor }}"
-
-  # ─── Build e push da imagem Docker para o Docker Hub ──────────────────────
-  docker-push:
-    name: Build e Push Docker Hub
-    runs-on: ubuntu-latest
-    needs: aprovacao-producao
     timeout-minutes: 15
+    environment: producao
     permissions:
       contents: read
 
