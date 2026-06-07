@@ -1,6 +1,6 @@
 import { randomBytes, createHash } from 'crypto'
-import { z } from 'zod'
 import { criarAplicacao } from '@/infra/http/aplicacao'
+import { resolverEnv } from '@/infra/http/env'
 import { conectarMongoDB, desconectarMongoDB } from '@/infra/bd/conexao-mongodb'
 import { obterRedis, desconectarRedis } from '@/infra/cache/conexao-redis'
 import { RepositorioUsuarioMongo } from '@/modulos/usuarios/infra/repositorios/repositorio-usuario-mongo'
@@ -33,17 +33,8 @@ import { BuscarHistoricoVisitante } from '@/modulos/visitantes/aplicacao/casos-d
 import { ControladorVisitante } from '@/modulos/visitantes/apresentacao/controladores/controlador-visitante'
 import { rotasVisitante } from '@/modulos/visitantes/apresentacao/rotas/rotas-visitante'
 
-const schemaEnv = z.object({
-  PORTA: z.coerce.number().int().min(1).max(65535).default(3000),
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  JWT_SECRETO: z.string().min(32, 'JWT_SECRETO deve ter no mínimo 32 caracteres.'),
-  JWT_EXPIRACAO_ACCESS: z.string().default('1h'),
-  MONGO_URI: z.string().min(1, 'MONGO_URI não definido.'),
-  REDIS_URL: z.string().min(1, 'REDIS_URL não definido.'),
-})
-
 async function iniciar(): Promise<void> {
-  const resultado = schemaEnv.safeParse(process.env)
+  const resultado = resolverEnv(process.env)
   if (!resultado.success) {
     process.stderr.write(`Configuração inválida:\n${resultado.error.message}\n`)
     process.exit(1)
